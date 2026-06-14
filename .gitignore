@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+# Salidas generadas
+armonizado.musicxml
+examples/twinkle.musicxml
+*.pdf
