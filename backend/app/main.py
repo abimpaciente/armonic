@@ -11,10 +11,12 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from armonic.voices import DEFAULT_TEMPO, retempo_midi
 
 from .config import settings
 from .pipeline import process
@@ -141,7 +143,12 @@ def get_hymn(hymn_id: str) -> dict:
 
 
 @app.get("/api/hymn/{hymn_id}/midi/{track}")
-def get_midi(hymn_id: str, track: str) -> FileResponse:
+def get_midi(
+    hymn_id: str,
+    track: str,
+    tempo: int | None = Query(None, ge=40, le=160,
+                              description="BPM de ensayo; por defecto el original"),
+) -> FileResponse:
     hymn = store.get_hymn(hymn_id)
     if hymn is None:
         raise HTTPException(404, "Himno no encontrado")
@@ -150,7 +157,21 @@ def get_midi(hymn_id: str, track: str) -> FileResponse:
     path = settings.storage_dir / hymn_id / "midi" / f"{track}.mid"
     if not path.exists():
         raise HTTPException(404, "Archivo MIDI no encontrado")
-    return FileResponse(path, media_type="audio/midi", filename=f"{track}.mid")
+
+    # Sin tempo (o el de por defecto) -> sirve el MIDI tal cual.
+    if tempo is None or tempo == DEFAULT_TEMPO:
+        return FileResponse(path, media_type="audio/midi",
+                            filename=f"{track}.mid")
+
+    # Tempo personalizado -> genera (y cachea) una copia reajustada.
+    cached = settings.storage_dir / hymn_id / "midi" / "cache" / f"{track}__{tempo}.mid"
+    if not cached.exists():
+        try:
+            retempo_midi(str(path), tempo, str(cached))
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"No se pudo ajustar el tempo: {exc}")
+    return FileResponse(cached, media_type="audio/midi",
+                        filename=f"{track}_{tempo}bpm.mid")
 
 
 class SPAStaticFiles(StaticFiles):

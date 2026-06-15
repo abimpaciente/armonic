@@ -15,9 +15,22 @@ from __future__ import annotations
 import os
 from typing import Dict, List
 
-from music21 import chord, clef, instrument, note, stream, volume
+from music21 import (
+    chord,
+    clef,
+    converter,
+    instrument,
+    note,
+    stream,
+    tempo,
+    volume,
+)
 
 VOICE_ORDER = ["soprano", "alto", "tenor", "bass"]
+
+# Tempo de ensayo por defecto (BPM). Más lento que el 120 del MIDI crudo para
+# que un coro pueda seguir la línea. El front permite ajustarlo con un slider.
+DEFAULT_TEMPO = 84
 
 
 def _split_staff(part: stream.Part, top_name: str, bottom_name: str
@@ -73,23 +86,36 @@ def split_satb(score: stream.Score) -> stream.Score:
     return out
 
 
-def _apply_velocity(part: stream.Part, vel: int) -> stream.Part:
-    """Devuelve una copia de la parte con todas las notas a una velocidad."""
+def _voice_part(part: stream.Part, vel: int, bpm: int) -> stream.Part:
+    """Copia de la parte con voz coral ("aah"), velocidad y tempo dados.
+
+    El timbre de coro (GM program 52, ``instrument.Choir``) hace que la pista
+    suene a voces cantando en vez del piano/MIDI seco.
+    """
     p = part.flatten()
+    # Evita instrumentos/tempos duplicados si la parte ya traía alguno.
+    for el in list(p.getElementsByClass((instrument.Instrument,
+                                         tempo.MetronomeMark))):
+        p.remove(el)
+    p.insert(0, instrument.Choir())
+    p.insert(0, tempo.MetronomeMark(number=bpm))
     for n in p.notes:
         n.volume = volume.Volume(velocity=vel)
     return p
 
 
 def write_practice_tracks(satb: stream.Score, out_dir: str,
-                          highlight: int = 110, background: int = 40
-                          ) -> List[str]:
+                          highlight: int = 110, background: int = 40,
+                          tempo_bpm: int = DEFAULT_TEMPO) -> List[str]:
     """Genera MIDIs de ensayo a partir de una partitura SATB.
 
     Para cada voz crea dos archivos:
       * ``<voz>_solo.mid``      — solo esa voz.
       * ``<voz>_realce.mid``    — esa voz fuerte y las demás de fondo,
                                   útil para aprender tu parte con contexto.
+
+    Todas las pistas usan timbre de coro y se escriben a ``tempo_bpm``. El
+    tempo se puede reajustar después por pista con :func:`retempo_midi`.
 
     Devuelve la lista de rutas escritas.
     """
@@ -100,7 +126,7 @@ def write_practice_tracks(satb: stream.Score, out_dir: str,
     for target in VOICE_ORDER:
         # Solo
         solo = stream.Score()
-        solo.insert(0, _apply_velocity(parts[target], highlight))
+        solo.insert(0, _voice_part(parts[target], highlight, tempo_bpm))
         solo_path = os.path.join(out_dir, f"{target}_solo.mid")
         solo.write("midi", fp=solo_path)
         written.append(solo_path)
@@ -109,7 +135,7 @@ def write_practice_tracks(satb: stream.Score, out_dir: str,
         mix = stream.Score()
         for name in VOICE_ORDER:
             vel = highlight if name == target else background
-            mix.insert(0, _apply_velocity(parts[name], vel))
+            mix.insert(0, _voice_part(parts[name], vel, tempo_bpm))
         mix_path = os.path.join(out_dir, f"{target}_realce.mid")
         mix.write("midi", fp=mix_path)
         written.append(mix_path)
@@ -117,8 +143,22 @@ def write_practice_tracks(satb: stream.Score, out_dir: str,
     # Mezcla completa equilibrada
     full = stream.Score()
     for name in VOICE_ORDER:
-        full.insert(0, _apply_velocity(parts[name], 80))
+        full.insert(0, _voice_part(parts[name], 80, tempo_bpm))
     full_path = os.path.join(out_dir, "satb_completo.mid")
     full.write("midi", fp=full_path)
     written.append(full_path)
     return written
+
+
+def retempo_midi(src_path: str, bpm: int, dest_path: str) -> str:
+    """Reescribe un MIDI existente a un nuevo tempo (BPM), conservando notas,
+    velocidades e instrumento. Devuelve ``dest_path``."""
+    score = converter.parse(str(src_path))
+    for mm in list(score.recurse().getElementsByClass(tempo.MetronomeMark)):
+        if mm.activeSite is not None:
+            mm.activeSite.remove(mm)
+    target = score.parts[0] if score.parts else score
+    target.insert(0, tempo.MetronomeMark(number=bpm))
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    score.write("midi", fp=str(dest_path))
+    return dest_path

@@ -42,7 +42,8 @@ export class ApiService {
     return this.http.get<{ hymns: Hymn[] }>('/api/hymns');
   }
 
-  midiUrl(hymnId: string, track: string): string {
-    return `/api/hymn/${hymnId}/midi/${track}`;
+  midiUrl(hymnId: string, track: string, tempo?: number): string {
+    const base = `/api/hymn/${hymnId}/midi/${track}`;
+    return tempo ? `${base}?tempo=${tempo}` : base;
   }
 }
