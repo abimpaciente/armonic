@@ -25,16 +25,8 @@ app = FastAPI(title="armonic API", version="0.1.0")
 VOICE_ORDER = ["soprano", "alto", "tenor", "bass"]
 
 
-def _process_job(job_id: str, hymn_id: str, src: Path, title: str = "") -> None:
-    """Tarea en segundo plano: corre el pipeline y registra el resultado."""
-    store.update_job(job_id, status="processing", progress=20)
-    work_dir = settings.storage_dir / hymn_id
-    try:
-        result = process(src, hymn_id, work_dir, title=title)
-    except Exception as exc:  # noqa: BLE001 - reportamos el error al cliente
-        store.update_job(job_id, status="failed", error=str(exc))
-        return
-
+def _persist_result(result, work_dir: Path) -> None:
+    """Registra el himno en el store y copia sus MIDI a una carpeta servible."""
     hymn = {
         "hymn_id": result.hymn_id,
         "title": result.title,
@@ -44,13 +36,51 @@ def _process_job(job_id: str, hymn_id: str, src: Path, title: str = "") -> None:
         "duration_seconds": result.duration_seconds,
         "tracks": sorted(result.midi_files.keys()),
     }
-    # Copia los MIDI a una carpeta estable servible
     midi_dir = work_dir / "midi"
     midi_dir.mkdir(parents=True, exist_ok=True)
     for name, path in result.midi_files.items():
         shutil.copy(path, midi_dir / f"{name}.mid")
     store.add_hymn(hymn)
+
+
+def _process_job(job_id: str, hymn_id: str, src: Path, title: str = "") -> None:
+    """Tarea en segundo plano: corre el pipeline y registra el resultado."""
+    store.update_job(job_id, status="processing", progress=20)
+    work_dir = settings.storage_dir / hymn_id
+    try:
+        result = process(src, hymn_id, work_dir, title=title)
+    except Exception as exc:  # noqa: BLE001 - reportamos el error al cliente
+        store.update_job(job_id, status="failed", error=str(exc))
+        return
+    _persist_result(result, work_dir)
     store.update_job(job_id, status="completed", progress=100, hymn_id=hymn_id)
+
+
+def _seed_demo() -> None:
+    """Siembra un himno de demostración si la biblioteca está vacía.
+
+    Útil en despliegues con disco efímero (p. ej. Render plan gratis): el coro
+    siempre encuentra un himno para probar las pistas de ensayo aunque el
+    contenedor se reinicie y se borre el almacenamiento.
+    """
+    if store.list_hymns():
+        return
+    sample = Path(__file__).resolve().parent / "samples" / "demo_satb.musicxml"
+    if not sample.exists():
+        return
+    hymn_id = "demo"
+    work_dir = settings.storage_dir / hymn_id
+    try:
+        result = process(sample, hymn_id, work_dir, title="Coral de ejemplo")
+        _persist_result(result, work_dir)
+    except Exception:  # noqa: BLE001 - el demo es opcional, no debe tumbar el arranque
+        pass
+
+
+@app.on_event("startup")
+def _on_startup() -> None:
+    settings.ensure_dirs()
+    _seed_demo()
 
 
 @app.get("/api/health")
