@@ -56,5 +56,7 @@ docker compose up --build      # construye y levanta en http://localhost:8000
 
 - Python 3.11 + FastAPI + music21 (núcleo de armonía y separación de voces).
 - La app Angular **ya compilada**, servida por el backend.
-- Java 17 + Tesseract (habilitan el OMR opcional de fotos; sin esto, el backend
-  acepta MusicXML/MIDI directo).
+
+La imagen es liviana a propósito: el MVP acepta **MusicXML/MIDI directo**. El OMR
+de fotos (Audiveris, que necesita Java + Tesseract) se añadirá a la imagen
+cuando se integre — ver el comentario en el `Dockerfile`.

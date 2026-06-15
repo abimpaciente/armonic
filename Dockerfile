@@ -10,13 +10,10 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# System dependencies (Java + Tesseract enable optional OMR)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    openjdk-17-jre-headless \
-    tesseract-ocr \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+# NOTE: el MVP solo necesita Python (music21 + FastAPI son puro Python/wheels).
+# El OMR de fotos (Audiveris) requiere Java + Tesseract; cuando se integre,
+# añadir aquí: apt-get install default-jre-headless tesseract-ocr
+# (paquetes que existen en cualquier versión de Debian).
 
 # Backend code + install
 COPY . .
