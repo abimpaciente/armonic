@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>armonic — Demo de pistas de ensayo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 20px;
+      border-bottom: 2px solid #0ea5e9;
+    }
+    h1 {
+      font-size: 32px;
+      margin-bottom: 8px;
+      color: #0ea5e9;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: 16px;
+    }
+    .voices-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .voice-card {
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+    .voice-card.highlighted {
+      border-color: #0ea5e9;
+      background: #0f172a;
+      box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
+    }
+    .voice-card h3 {
+      color: #0ea5e9;
+      margin-bottom: 16px;
+      font-size: 18px;
+    }
+    .voice-card.bass h3 {
+      color: #f97316;
+      font-weight: bold;
+    }
+    .voice-card.bass {
+      border-color: #f97316;
+      background: #0f172a;
+    }
+    .track-group {
+      margin-bottom: 14px;
+    }
+    .track-label {
+      font-size: 12px;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    audio {
+      width: 100%;
+      height: 32px;
+      cursor: pointer;
+    }
+    .full-mix {
+      grid-column: 1 / -1;
+      background: #0f172a;
+      border-color: #0ea5e9;
+      border-width: 2px;
+    }
+    .full-mix h3 {
+      color: #0ea5e9;
+    }
+    footer {
+      text-align: center;
+      color: #64748b;
+      font-size: 12px;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #334155;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎵 armonic</h1>
+      <p class="subtitle">Pistas de ensayo SATB • Demo local</p>
+    </header>
+
+    <div class="voices-grid">
+      <!-- SOPRANO -->
+      <div class="voice-card">
+        <h3>Soprano</h3>
+        <div class="track-group">
+          <div class="track-label">Solo</div>
+          <audio controls>
+            <source src="audiveris_practice2/soprano_solo.mid" type="audio/midi">
+          </audio>
+        </div>
+        <div class="track-group">
+          <div class="track-label">Con fondo</div>
+          <audio controls>
+            <source src="audiveris_practice2/soprano_realce.mid" type="audio/midi">
+          </audio>
+        </div>
+      </div>
+
+      <!-- ALTO -->
+      <div class="voice-card">
+        <h3>Alto (Contralto)</h3>
+        <div class="track-group">
+          <div class="track-label">Solo</div>
+          <audio controls>
+            <source src="audiveris_practice2/alto_solo.mid" type="audio/midi">
+          </audio>
+        </div>
+        <div class="track-group">
+          <div class="track-label">Con fondo</div>
+          <audio controls>
+            <source src="audiveris_practice2/alto_realce.mid" type="audio/midi">
+          </audio>
+        </div>
+      </div>
+
+      <!-- TENOR -->
+      <div class="voice-card">
+        <h3>Tenor</h3>
+        <div class="track-group">
+          <div class="track-label">Solo</div>
+          <audio controls>
+            <source src="audiveris_practice2/tenor_solo.mid" type="audio/midi">
+          </audio>
+        </div>
+        <div class="track-group">
+          <div class="track-label">Con fondo</div>
+          <audio controls>
+            <source src="audiveris_practice2/tenor_realce.mid" type="audio/midi">
+          </audio>
+        </div>
+      </div>
+
+      <!-- BASS (tu voz, destacada) -->
+      <div class="voice-card bass highlighted">
+        <h3>Bass (Bajo) ⭐ Tu voz</h3>
+        <div class="track-group">
+          <div class="track-label">Solo</div>
+          <audio controls>
+            <source src="audiveris_practice2/bass_solo.mid" type="audio/midi">
+          </audio>
+        </div>
+        <div class="track-group">
+          <div class="track-label">Con fondo</div>
+          <audio controls>
+            <source src="audiveris_practice2/bass_realce.mid" type="audio/midi">
+          </audio>
+        </div>
+      </div>
+
+      <!-- MEZCLA COMPLETA -->
+      <div class="voice-card full-mix">
+        <h3>Todas juntas (SATB completo)</h3>
+        <div class="track-group">
+          <div class="track-label">Mezcla equilibrada</div>
+          <audio controls>
+            <source src="audiveris_practice2/satb_completo.mid" type="audio/midi">
+          </audio>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>armonic • Armonización y separación de voces SATB</p>
+      <p>Demo local con MIDIs generados durante pruebas</p>
+    </footer>
+  </div>
+</body>
+</html>
