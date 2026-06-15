@@ -3,8 +3,11 @@
 Prototipo de **armonización automática a 4 voces** (SATB) a partir de una
 melodía en MusicXML, construido con [music21](https://web.mit.edu/music21/).
 
-Este es el **núcleo de armonía** del proyecto (sin OMR ni frontend todavía).
-Cubre dos casos de uso:
+El repo incluye el **núcleo de armonía** (este README), una **API backend**
+([`backend/`](backend/README.md)) y una **app web Angular PWA**
+([`frontend/`](frontend/README.md)) para subir himnos y practicar tu voz.
+
+El núcleo cubre dos casos de uso:
 
 - **Caso A — Separar voces** (`armonic.voices`): una partitura que ya viene a
   4 voces en *partitura cerrada* (2 pentagramas con Soprano+Alto y Tenor+Bajo,
