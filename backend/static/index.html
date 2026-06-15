@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>armonic — practica tu voz</title>
+<!-- Reproductor MIDI en el navegador (web component) -->
+<script src="https://cdn.jsdelivr.net/combine/npm/tone@14.7.58,npm/@magenta/music@1.23.1/es6/core.js,npm/focus-visible@5,npm/html-midi-player@1.5.0"></script>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --txt:#e2e8f0; --muted:#94a3b8; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:18px 20px; background:var(--card); font-size:20px; font-weight:700; }
+  header small { color:var(--muted); font-weight:400; font-size:13px; display:block; }
+  main { max-width:720px; margin:0 auto; padding:20px; }
+  .card { background:var(--card); border-radius:12px; padding:18px; margin-bottom:16px; }
+  button, .btn { background:var(--accent); color:#06283d; border:0; border-radius:8px;
+    padding:10px 16px; font-weight:600; cursor:pointer; font-size:14px; }
+  button:disabled { opacity:.5; cursor:default; }
+  input[type=file] { color:var(--muted); }
+  .voice { border:1px solid #334155; border-radius:10px; padding:12px; margin:10px 0; }
+  .voice.mine { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .voice h3 { margin:0 0 8px; font-size:16px; }
+  .badge { font-size:11px; color:var(--muted); }
+  midi-player { width:100%; margin-top:8px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  a.dl { color:var(--accent); font-size:13px; text-decoration:none; }
+  .muted { color:var(--muted); font-size:13px; }
+  select { padding:8px; border-radius:8px; background:#0f172a; color:var(--txt); border:1px solid #334155; }
+  .status { font-size:14px; color:var(--muted); }
+  progress { width:100%; height:10px; }
+</style>
+</head>
+<body>
+<header>🎵 armonic <small>sube un himno y practica tu voz</small></header>
+<main>
+
+  <div class="card">
+    <div class="row">
+      <label class="muted">Tu voz:
+        <select id="myVoice">
+          <option value="bass" selected>Bass (bajo)</option>
+          <option value="tenor">Tenor</option>
+          <option value="alto">Alto</option>
+          <option value="soprano">Soprano</option>
+        </select>
+      </label>
+    </div>
+    <p class="muted">Sube una foto del himno (JPG/PNG) o un MusicXML/MIDI.</p>
+    <div class="row">
+      <input type="file" id="file" accept=".jpg,.jpeg,.png,.mxl,.musicxml,.xml,.mid,.midi">
+      <button id="go">Procesar</button>
+    </div>
+    <div id="status" class="status" style="margin-top:10px"></div>
+    <progress id="bar" value="0" max="100" style="display:none"></progress>
+  </div>
+
+  <div class="card" id="result" style="display:none">
+    <h2 id="title"></h2>
+    <p class="muted" id="meta"></p>
+    <div id="voices"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <strong>Biblioteca</strong>
+      <button id="refresh" style="background:#334155;color:var(--txt)">Actualizar</button>
+    </div>
+    <div id="library" class="muted">—</div>
+  </div>
+
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const api = (p, o) => fetch(p, o).then(r => r.json());
+
+async function upload() {
+  const f = $('#file').files[0];
+  if (!f) { $('#status').textContent = 'Elige un archivo primero.'; return; }
+  $('#go').disabled = true;
+  $('#bar').style.display = 'block';
+  $('#status').textContent = 'Subiendo...';
+  const fd = new FormData(); fd.append('file', f);
+  const { job_id, error } = await api('/api/upload', { method:'POST', body: fd });
+  if (error || !job_id) { fail(error || 'No se pudo subir'); return; }
+  poll(job_id);
+}
+
+function fail(msg) {
+  $('#status').textContent = '✗ ' + msg;
+  $('#bar').style.display = 'none';
+  $('#go').disabled = false;
+}
+
+async function poll(job_id) {
+  const j = await api('/api/job/' + job_id);
+  $('#bar').value = j.progress || 0;
+  if (j.status === 'processing') { $('#status').textContent = 'Procesando partitura...'; }
+  if (j.status === 'completed') {
+    $('#status').textContent = '✓ Listo';
+    $('#bar').style.display = 'none';
+    $('#go').disabled = false;
+    showHymn(j.hymn_id);
+    loadLibrary();
+    return;
+  }
+  if (j.status === 'failed') { fail(j.error || 'Falló el procesamiento'); return; }
+  setTimeout(() => poll(job_id), 1500);
+}
+
+async function showHymn(id) {
+  const h = await api('/api/hymn/' + id);
+  $('#result').style.display = 'block';
+  $('#title').textContent = h.title;
+  $('#meta').textContent = `${h.key} · ${h.mode} · ${h.duration_seconds}s · ${h.tracks.length} pistas`;
+  const mine = $('#myVoice').value;
+  const order = ['soprano','alto','tenor','bass'];
+  const voices = order.filter(v => h.tracks.includes(v + '_solo'));
+  $('#voices').innerHTML = voices.map(v => {
+    const solo = `/api/hymn/${id}/midi/${v}_solo`;
+    const realce = `/api/hymn/${id}/midi/${v}_realce`;
+    return `<div class="voice ${v===mine?'mine':''}">
+      <h3>${v[0].toUpperCase()+v.slice(1)} ${v===mine?'<span class="badge">★ tu voz</span>':''}</h3>
+      <div class="row">
+        <span class="muted">Solo:</span> <a class="dl" href="${solo}">⤓</a>
+        <span class="muted">Con fondo:</span> <a class="dl" href="${realce}">⤓</a>
+      </div>
+      <midi-player src="${v===mine?realce:solo}" sound-font visualizer="#viz_${v}"></midi-player>
+    </div>`;
+  }).join('') +
+  `<div class="voice"><h3>Todas juntas</h3>
+     <midi-player src="/api/hymn/${id}/midi/satb_completo" sound-font></midi-player>
+     <a class="dl" href="/api/hymn/${id}/midi/satb_completo">⤓ descargar</a></div>`;
+}
+
+async function loadLibrary() {
+  const { hymns } = await api('/api/hymns');
+  $('#library').innerHTML = hymns.length
+    ? hymns.map(h => `<div><a href="#" class="dl" data-id="${h.hymn_id}">► ${h.title}</a>
+        <span class="muted">(${h.key})</span></div>`).join('')
+    : 'Aún no hay himnos. Sube el primero ↑';
+  document.querySelectorAll('#library a').forEach(a =>
+    a.onclick = e => { e.preventDefault(); showHymn(a.dataset.id); });
+}
+
+$('#go').onclick = upload;
+$('#refresh').onclick = loadLibrary;
+loadLibrary();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "armonic"
+version = "0.1.0"
+description = "Armonización y separación de voces SATB a partir de partituras (OMR -> 4 voces -> pistas de ensayo)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "music21>=9.1,<11",
+]
+
+[project.optional-dependencies]
+backend = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
+]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+armonic = "armonic.cli:main"
+
+[tool.setuptools]
+packages = ["armonic"]

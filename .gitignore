@@ -13,6 +13,10 @@ audiveris_out/
 audiveris_out*/
 audiveris_practice/
 audiveris_practice*/
+# Datos del backend en runtime
+backend/storage/
+storage/
+bass_solo.mid
 omr_*.musicxml
 omr_*.mid
 *.mid
