@@ -27,9 +27,10 @@ export interface JobStatus {
 export class ApiService {
   constructor(private http: HttpClient) {}
 
-  upload(file: File): Observable<{ job_id: string; status: string }> {
+  upload(file: File, title = ''): Observable<{ job_id: string; status: string }> {
     const fd = new FormData();
     fd.append('file', file);
+    if (title.trim()) fd.append('title', title.trim());
     return this.http.post<{ job_id: string; status: string }>('/api/upload', fd);
   }
 

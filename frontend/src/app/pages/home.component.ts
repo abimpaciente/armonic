@@ -13,6 +13,8 @@ import { ApiService, Hymn } from '../api.service';
       <h2>Subir un himno</h2>
       <p class="muted">Sube una foto del himnario (JPG/PNG) o un archivo
         MusicXML/MIDI.</p>
+      <input class="title-in" placeholder="Título del himno (opcional)"
+        [(ngModel)]="title" />
       <div class="row">
         <input type="file" (change)="pick($event)"
           accept=".jpg,.jpeg,.png,.mxl,.musicxml,.xml,.mid,.midi" />
@@ -46,6 +48,7 @@ import { ApiService, Hymn } from '../api.service';
   `,
   styles: [`
     .search { max-width: 200px; }
+    .title-in { width: 100%; margin: 8px 0; }
     .hymn-row { display: flex; align-items: center; gap: 10px;
       padding: 12px; border-radius: 8px; }
     .hymn-row:hover { background: #1e293b; }
@@ -65,6 +68,7 @@ import { ApiService, Hymn } from '../api.service';
 })
 export class HomeComponent implements OnInit {
   file: File | null = null;
+  title = '';
   query = '';
   hymns = signal<Hymn[]>([]);
   status = signal('');
@@ -94,7 +98,7 @@ export class HomeComponent implements OnInit {
     this.error.set('');
     this.status.set('Subiendo…');
     this.progress.set(10);
-    this.api.upload(this.file).subscribe({
+    this.api.upload(this.file, this.title).subscribe({
       next: (r) => this.poll(r.job_id),
       error: (e) => this.fail(e?.error?.detail || 'No se pudo subir'),
     });

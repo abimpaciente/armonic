@@ -71,17 +71,31 @@ def _read_musicxml_text(path: Path) -> Optional[str]:
     return None
 
 
+def _clean_credit_text(block: str) -> str:
+    """Une el texto de uno o varios ``credit-words`` de un bloque ``credit``."""
+    parts = re.findall(r"<credit-words[^>]*>(.*?)</credit-words>", block, re.S)
+    return re.sub(r"\s+", " ", " ".join(parts)).strip()
+
+
 def _title_from_musicxml(path: Path) -> Optional[str]:
     """Extrae el título reconocido por el OCR desde el MusicXML.
 
-    Audiveris exporta el título de la página como ``work-title``/``movement-title``
-    o, más a menudo, como ``credit-words``. De varios ``credit-words`` se toma el
-    de mayor tamaño de fuente (normalmente el título arriba de la partitura).
+    Prioridad: un ``credit`` marcado como ``title`` > ``work-title`` /
+    ``movement-title`` > el ``credit-words`` de mayor tamaño de fuente
+    (normalmente el título arriba de la partitura).
     """
     raw = _read_musicxml_text(path)
     if not raw:
         return None
 
+    # 1. credit con <credit-type>title</credit-type>
+    for block in re.findall(r"<credit\b.*?</credit>", raw, re.S):
+        if re.search(r"<credit-type>\s*title\s*</credit-type>", block, re.I):
+            t = _clean_credit_text(block)
+            if t and not _looks_like_filename(t):
+                return t
+
+    # 2. work-title / movement-title
     for tag in ("work-title", "movement-title"):
         m = re.search(rf"<{tag}[^>]*>(.*?)</{tag}>", raw, re.S)
         if m:
@@ -89,6 +103,7 @@ def _title_from_musicxml(path: Path) -> Optional[str]:
             if t and not _looks_like_filename(t):
                 return t
 
+    # 3. credit-words más grande (heurística: el título suele ir en letra mayor)
     best, best_size = None, -1.0
     for m in re.finditer(r"<credit-words([^>]*)>(.*?)</credit-words>", raw, re.S):
         attrs, text = m.group(1), re.sub(r"\s+", " ", m.group(2)).strip()
@@ -132,8 +147,13 @@ def _resolve_title(score: stream.Score, score_path: Path, fallback: str) -> str:
 
 
 def process(input_path: Path, hymn_id: str, work_dir: Path,
-            title: str = "") -> HymnResult:
-    """Procesa un archivo subido y devuelve el resultado con rutas de MIDI."""
+            title: str = "", filename: str = "") -> HymnResult:
+    """Procesa un archivo subido y devuelve el resultado con rutas de MIDI.
+
+    ``title`` es un título explícito (lo que escribe el usuario o un demo) y
+    tiene prioridad sobre el OCR. ``filename`` es el nombre original, usado
+    solo como último recurso para el título.
+    """
     work_dir.mkdir(parents=True, exist_ok=True)
     ext = input_path.suffix.lower()
 
@@ -170,9 +190,13 @@ def process(input_path: Path, hymn_id: str, work_dir: Path,
     paths = write_practice_tracks(satb, str(tracks_dir))
     midi_files = {Path(p).stem: p for p in paths}
 
+    # Título: explícito del usuario > OCR > metadata > nombre limpio.
+    resolved_title = title.strip() if title and title.strip() else \
+        _resolve_title(score, score_path, fallback=filename or input_path.stem)
+
     return HymnResult(
         hymn_id=hymn_id,
-        title=_resolve_title(score, score_path, fallback=title or input_path.stem),
+        title=resolved_title,
         key=key,
         mode=mode,
         notes_per_voice=notes_per_voice,

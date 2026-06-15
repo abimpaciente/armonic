@@ -11,7 +11,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -55,12 +55,13 @@ def _persist_result(result, work_dir: Path) -> None:
     store.add_hymn(hymn)
 
 
-def _process_job(job_id: str, hymn_id: str, src: Path, title: str = "") -> None:
+def _process_job(job_id: str, hymn_id: str, src: Path, title: str = "",
+                 filename: str = "") -> None:
     """Tarea en segundo plano: corre el pipeline y registra el resultado."""
     store.update_job(job_id, status="processing", progress=20)
     work_dir = settings.storage_dir / hymn_id
     try:
-        result = process(src, hymn_id, work_dir, title=title)
+        result = process(src, hymn_id, work_dir, title=title, filename=filename)
     except Exception as exc:  # noqa: BLE001 - reportamos el error al cliente
         store.update_job(job_id, status="failed", error=str(exc))
         return
@@ -107,7 +108,11 @@ def health() -> dict:
 
 
 @app.post("/api/upload")
-async def upload(file: UploadFile, background: BackgroundTasks) -> dict:
+async def upload(
+    file: UploadFile,
+    background: BackgroundTasks,
+    title: str = Form(""),
+) -> dict:
     ext = Path(file.filename or "").suffix.lower()
     if ext not in settings.image_exts | settings.score_exts:
         raise HTTPException(400, f"Tipo de archivo no soportado: {ext or '?'}")
@@ -126,8 +131,8 @@ async def upload(file: UploadFile, background: BackgroundTasks) -> dict:
     with src.open("wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    title = Path(file.filename or "").stem or "Himno"
-    background.add_task(_process_job, job_id, hymn_id, src, title)
+    filename = Path(file.filename or "").stem or "Himno"
+    background.add_task(_process_job, job_id, hymn_id, src, title.strip(), filename)
     return {"job_id": job_id, "status": "queued"}
 
 
