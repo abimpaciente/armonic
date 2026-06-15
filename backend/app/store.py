@@ -60,6 +60,22 @@ class Store:
     def get_hymn(self, hymn_id: str) -> Optional[dict]:
         return self.hymns.get(hymn_id)
 
+    def remove_hymn(self, hymn_id: str) -> bool:
+        """Quita un himno del índice. Devuelve True si existía."""
+        with self._lock:
+            existed = self.hymns.pop(hymn_id, None) is not None
+            if existed:
+                self._save()
+        return existed
+
+    def clear_hymns(self) -> list:
+        """Vacía la biblioteca. Devuelve los ids que había."""
+        with self._lock:
+            ids = list(self.hymns.keys())
+            self.hymns = {}
+            self._save()
+        return ids
+
     def list_hymns(self) -> list:
         return sorted(self.hymns.values(), key=lambda h: h.get("title", ""))
 

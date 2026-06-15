@@ -31,11 +31,14 @@ import { ApiService, Hymn } from '../api.service';
       </div>
       @if (filtered().length) {
         @for (h of filtered(); track h.hymn_id) {
-          <a class="hymn-row" [routerLink]="['/hymn', h.hymn_id]">
-            <span class="t">► {{ h.title }}</span>
-            <span class="muted">{{ h.key }} · {{ h.mode }}</span>
-          </a>
+          <div class="hymn-row">
+            <a class="t" [routerLink]="['/hymn', h.hymn_id]">► {{ h.title }}</a>
+            <span class="muted meta">{{ h.key }} · {{ h.mode }}</span>
+            <button class="del" title="Borrar este himno"
+              (click)="remove(h)">🗑</button>
+          </div>
         }
+        <button class="clear" (click)="clearAll()">Vaciar biblioteca</button>
       } @else {
         <p class="muted">Aún no hay himnos. Sube el primero ↑</p>
       }
@@ -43,10 +46,18 @@ import { ApiService, Hymn } from '../api.service';
   `,
   styles: [`
     .search { max-width: 200px; }
-    .hymn-row { display: flex; justify-content: space-between; align-items: center;
-      padding: 12px; border-radius: 8px; text-decoration: none; color: inherit; }
+    .hymn-row { display: flex; align-items: center; gap: 10px;
+      padding: 12px; border-radius: 8px; }
     .hymn-row:hover { background: #1e293b; }
-    .hymn-row .t { color: var(--accent); font-weight: 600; }
+    .hymn-row .t { color: var(--accent); font-weight: 600; text-decoration: none;
+      flex: 1; }
+    .hymn-row .meta { white-space: nowrap; }
+    .del { background: none; border: none; cursor: pointer; font-size: 16px;
+      opacity: 0.6; padding: 2px 6px; }
+    .del:hover { opacity: 1; }
+    .clear { margin-top: 10px; background: none; border: 1px solid #475569;
+      color: #94a3b8; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+    .clear:hover { border-color: #f87171; color: #f87171; }
     .between { justify-content: space-between; align-items: center; }
     .error { color: #f87171; }
     progress { width: 100%; }
@@ -107,6 +118,22 @@ export class HomeComponent implements OnInit {
         setTimeout(() => this.poll(jobId), 1500);
       },
       error: () => this.fail('Error consultando el estado'),
+    });
+  }
+
+  remove(h: Hymn): void {
+    if (!confirm(`¿Borrar "${h.title}"? Esto elimina sus pistas.`)) return;
+    this.api.deleteHymn(h.hymn_id).subscribe({
+      next: () => this.hymns.set(this.hymns().filter((x) => x.hymn_id !== h.hymn_id)),
+      error: () => this.error.set('No se pudo borrar el himno'),
+    });
+  }
+
+  clearAll(): void {
+    if (!confirm('¿Borrar TODOS los himnos y sus pistas?')) return;
+    this.api.clearLibrary().subscribe({
+      next: () => this.hymns.set([]),
+      error: () => this.error.set('No se pudo vaciar la biblioteca'),
     });
   }
 

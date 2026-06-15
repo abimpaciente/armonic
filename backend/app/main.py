@@ -142,6 +142,29 @@ def get_hymn(hymn_id: str) -> dict:
     return hymn
 
 
+def _delete_hymn_files(hymn_id: str) -> None:
+    """Borra la carpeta de un himno, siempre dentro de storage_dir."""
+    work_dir = (settings.storage_dir / hymn_id).resolve()
+    if work_dir.parent == settings.storage_dir and work_dir.is_dir():
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
+@app.delete("/api/hymns")
+def clear_hymns() -> dict:
+    ids = store.clear_hymns()
+    for hymn_id in ids:
+        _delete_hymn_files(hymn_id)
+    return {"deleted": len(ids)}
+
+
+@app.delete("/api/hymn/{hymn_id}")
+def delete_hymn(hymn_id: str) -> dict:
+    if not store.remove_hymn(hymn_id):
+        raise HTTPException(404, "Himno no encontrado")
+    _delete_hymn_files(hymn_id)
+    return {"deleted": hymn_id}
+
+
 @app.get("/api/hymn/{hymn_id}/midi/{track}")
 def get_midi(
     hymn_id: str,

@@ -42,6 +42,14 @@ export class ApiService {
     return this.http.get<{ hymns: Hymn[] }>('/api/hymns');
   }
 
+  deleteHymn(id: string): Observable<{ deleted: string }> {
+    return this.http.delete<{ deleted: string }>(`/api/hymn/${id}`);
+  }
+
+  clearLibrary(): Observable<{ deleted: number }> {
+    return this.http.delete<{ deleted: number }>('/api/hymns');
+  }
+
   midiUrl(hymnId: string, track: string, tempo?: number): string {
     const base = `/api/hymn/${hymnId}/midi/${track}`;
     return tempo ? `${base}?tempo=${tempo}` : base;

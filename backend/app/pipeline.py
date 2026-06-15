@@ -9,10 +9,12 @@ Reúne todo el núcleo `armonic`:
 
 from __future__ import annotations
 
+import re
 import shutil
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from music21 import converter, stream
 
@@ -40,9 +42,72 @@ def _estimate_seconds(score: stream.Score, bpm: float = 90.0) -> float:
     return round(ql * 60.0 / bpm, 1)
 
 
-def _title_from(score: stream.Score, fallback: str) -> str:
+_EXT_RE = re.compile(r"\.(mxl|musicxml|xml|midi?|jpe?g|png|tiff?|bmp)$", re.I)
+
+
+def _looks_like_filename(text: str) -> bool:
+    """Un título OCR válido no debería terminar en una extensión de archivo."""
+    return bool(_EXT_RE.search(text.strip()))
+
+
+def _read_musicxml_text(path: Path) -> Optional[str]:
+    """Devuelve el XML de un MusicXML (.xml/.musicxml) o el interior de un .mxl."""
+    suffix = path.suffix.lower()
+    try:
+        if suffix == ".mxl":
+            with zipfile.ZipFile(path) as z:
+                inner = [
+                    n for n in z.namelist()
+                    if n.lower().endswith((".xml", ".musicxml"))
+                    and not n.startswith("META-INF")
+                ]
+                if not inner:
+                    return None
+                return z.read(inner[0]).decode("utf-8", "replace")
+        if suffix in (".xml", ".musicxml"):
+            return path.read_text("utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 - si no se puede leer, no hay título OCR
+        return None
+    return None
+
+
+def _title_from_musicxml(path: Path) -> Optional[str]:
+    """Extrae el título reconocido por el OCR desde el MusicXML.
+
+    Audiveris exporta el título de la página como ``work-title``/``movement-title``
+    o, más a menudo, como ``credit-words``. De varios ``credit-words`` se toma el
+    de mayor tamaño de fuente (normalmente el título arriba de la partitura).
+    """
+    raw = _read_musicxml_text(path)
+    if not raw:
+        return None
+
+    for tag in ("work-title", "movement-title"):
+        m = re.search(rf"<{tag}[^>]*>(.*?)</{tag}>", raw, re.S)
+        if m:
+            t = re.sub(r"\s+", " ", m.group(1)).strip()
+            if t and not _looks_like_filename(t):
+                return t
+
+    best, best_size = None, -1.0
+    for m in re.finditer(r"<credit-words([^>]*)>(.*?)</credit-words>", raw, re.S):
+        attrs, text = m.group(1), re.sub(r"\s+", " ", m.group(2)).strip()
+        if not text or _looks_like_filename(text):
+            continue
+        fs = re.search(r'font-size="([\d.]+)"', attrs)
+        size = float(fs.group(1)) if fs else 0.0
+        if size > best_size:
+            best, best_size = text, size
+    return best
+
+
+def _resolve_title(score: stream.Score, score_path: Path, fallback: str) -> str:
+    """Título OCR si existe; si no, el de la metadata; si no, el de respaldo."""
+    ocr = _title_from_musicxml(score_path)
+    if ocr:
+        return ocr
     md = score.metadata
-    if md is not None and md.title:
+    if md is not None and md.title and not _looks_like_filename(md.title):
         return md.title
     return fallback
 
@@ -88,7 +153,7 @@ def process(input_path: Path, hymn_id: str, work_dir: Path,
 
     return HymnResult(
         hymn_id=hymn_id,
-        title=_title_from(score, fallback=title or input_path.stem),
+        title=_resolve_title(score, score_path, fallback=title or input_path.stem),
         key=key,
         mode=mode,
         notes_per_voice=notes_per_voice,
