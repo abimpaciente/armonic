@@ -57,24 +57,29 @@ def _process_job(job_id: str, hymn_id: str, src: Path, title: str = "") -> None:
 
 
 def _seed_demo() -> None:
-    """Siembra un himno de demostración si la biblioteca está vacía.
+    """Siembra himnos de demostración si la biblioteca está vacía.
 
     Útil en despliegues con disco efímero (p. ej. Render plan gratis): el coro
-    siempre encuentra un himno para probar las pistas de ensayo aunque el
-    contenedor se reinicie y se borre el almacenamiento.
+    siempre encuentra al menos dos himnos para probar aunque el contenedor se
+    reinicie y se borre el almacenamiento.
     """
     if store.list_hymns():
         return
-    sample = Path(__file__).resolve().parent / "samples" / "demo_satb.musicxml"
-    if not sample.exists():
-        return
-    hymn_id = "demo"
-    work_dir = settings.storage_dir / hymn_id
-    try:
-        result = process(sample, hymn_id, work_dir, title="Coral de ejemplo")
-        _persist_result(result, work_dir)
-    except Exception:  # noqa: BLE001 - el demo es opcional, no debe tumbar el arranque
-        pass
+    samples_dir = Path(__file__).resolve().parent / "samples"
+    demos = [
+        ("demo", "demo_satb.musicxml", "Coral de ejemplo"),
+        ("a_dios_padre", "a_dios_padre.musicxml", "A Dios, el Padre celestial"),
+    ]
+    for hymn_id, filename, title in demos:
+        sample = samples_dir / filename
+        if not sample.exists():
+            continue
+        work_dir = settings.storage_dir / hymn_id
+        try:
+            result = process(sample, hymn_id, work_dir, title=title)
+            _persist_result(result, work_dir)
+        except Exception:  # noqa: BLE001 - el demo es opcional, no debe tumbar el arranque
+            pass
 
 
 @app.on_event("startup")
