@@ -1,0 +1,32 @@
+{
+  "name": "armonic (OMR + SATB voices)",
+  "image": "mcr.microsoft.com/devcontainers/java:21-gradle",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:20": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.debugpy",
+        "redhat.vscode-xml",
+        "ms-vscode.gradle"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true
+      }
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "remoteUser": "root",
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "Backend + Frontend",
+      "onAutoForward": "notify"
+    }
+  }
+}

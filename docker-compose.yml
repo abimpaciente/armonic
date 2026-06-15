@@ -9,10 +9,9 @@ services:
       # Storage directory for hymns, MIDI files, and Audiveris temp outputs
       ARMONIC_STORAGE: /app/storage
 
-      # OMR / Audiveris configuration (optional for MVP)
-      # If you have Audiveris installed on host, mount it and set:
-      # AUDIVERIS_BIN: /opt/audiveris/bin/audiveris
-      # TESSDATA_PREFIX: /usr/share/tesseract-ocr-4/tessdata
+      # OMR / Audiveris configuration
+      # Audiveris is now built into the Docker image
+      AUDIVERIS_BIN: /usr/local/bin/audiveris
 
       # Max upload size (MB)
       ARMONIC_MAX_UPLOAD_MB: 25
@@ -20,10 +19,6 @@ services:
     volumes:
       # Persist hymns and MIDI files across container restarts
       - storage:/app/storage
-
-      # (Optional) If you want to use host's Audiveris, mount it:
-      # - /opt/audiveris:/opt/audiveris:ro
-      # - /usr/share/tesseract-ocr-4:/usr/share/tesseract-ocr-4:ro
 
     restart: unless-stopped
     healthcheck:
