@@ -8,7 +8,10 @@ venv/
 armonizado.musicxml
 examples/twinkle.musicxml
 practice/
+omr_out/
 *.mid
 *.midi
 *.pdf
 *.png
+*.jpg
+*.jpeg
