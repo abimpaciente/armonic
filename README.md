@@ -94,6 +94,22 @@ satb = split_satb(score)            # 4 partes: soprano, alto, tenor, bass
 write_practice_tracks(satb, "practice/")
 ```
 
+## OMR (de la foto a las voces)
+
+El reconocimiento óptico de partituras (foto → MusicXML) es la parte más
+difícil y vive en el backend. Se probaron **Audiveris** (Java, más preciso y
+conserva los pentagramas) y **oemer** (Python/pip, más fácil pero aplasta las
+voces) sobre una foto real de himno. Resultados, instrucciones de instalación
+(incluido el truco de la dependencia no-libre `jai-core`) y recomendaciones de
+producto en **[docs/OMR.md](docs/OMR.md)**.
+
+Una vez tienes el MusicXML del OMR, encadénalo con el pipeline:
+
+```bash
+python examples/omr_to_voices.py reconocido.mxl -o practice/   # Caso A
+python -m armonic.cli reconocido.musicxml -o coral.musicxml    # Caso B
+```
+
 ## Pruebas
 
 ```bash
@@ -111,6 +127,9 @@ armonic/
 examples/
   make_sample.py     # genera un MusicXML de melodía de ejemplo
   separate_voices.py # separa una partitura cerrada en pistas por voz
+  omr_to_voices.py   # encadena salida del OMR -> separación de voces
+docs/
+  OMR.md             # viabilidad y guía del OMR (Audiveris / oemer)
 tests/
   test_harmony.py
 ```

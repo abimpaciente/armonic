@@ -8,7 +8,10 @@ Tenor+Bajo) y escribe en la carpeta de salida:
     soprano_solo.mid, soprano_realce.mid, ... y satb_completo.mid
 """
 
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from music21 import converter
 
