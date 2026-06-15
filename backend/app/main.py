@@ -60,15 +60,16 @@ def _seed_demo() -> None:
     """Siembra himnos de demostración si la biblioteca está vacía.
 
     Útil en despliegues con disco efímero (p. ej. Render plan gratis): el coro
-    siempre encuentra al menos dos himnos para probar aunque el contenedor se
-    reinicie y se borre el almacenamiento.
+    siempre encuentra dos himnos para probar aunque el contenedor se reinicie.
+    - demo: coral SATB de ejemplo (Do mayor)
+    - himno2_audiveris: hymn real procesado con OMR (Audiveris, Re mayor)
     """
     if store.list_hymns():
         return
     samples_dir = Path(__file__).resolve().parent / "samples"
     demos = [
         ("demo", "demo_satb.musicxml", "Coral de ejemplo"),
-        ("a_dios_padre", "a_dios_padre.musicxml", "A Dios, el Padre celestial"),
+        ("himno2_audiveris", "himno2.mxl", "A Dios, el Padre celestial"),
     ]
     for hymn_id, filename, title in demos:
         sample = samples_dir / filename
