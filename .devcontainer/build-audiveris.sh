@@ -28,8 +28,9 @@ $SUDO apt-get install -y --no-install-recommends tesseract-ocr
 
 # 3. Clone + build (~10-15 min the first time).
 if [ ! -d "$BUILD_DIR" ]; then
-    echo "📥 Cloning Audiveris..."
-    git clone --depth 1 https://github.com/Audiveris/audiveris.git "$BUILD_DIR"
+    echo "📥 Cloning Audiveris v5.4..."
+    # Pin to v5.4: builds with JDK 21. main (5.10+) requires Java 25.
+    git clone --depth 1 --branch v5.4 https://github.com/Audiveris/audiveris.git "$BUILD_DIR"
 fi
 echo "⚙️  Building Audiveris (this takes ~10-15 minutes)..."
 cd "$BUILD_DIR"

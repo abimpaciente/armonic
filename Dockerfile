@@ -9,7 +9,9 @@ RUN npm run build
 # ---- Stage 3: Build Audiveris from source (needs JDK 21) ----
 FROM gradle:8.5-jdk21 AS audiveris-builder
 WORKDIR /audiveris
-RUN git clone --depth 1 https://github.com/Audiveris/audiveris.git .
+# Pin to the v5.4 tag: it builds with JDK 21 (Gradle 8.7). NOTE: do not track
+# main — newer Audiveris (5.10+) requires Java 25 and will fail to compile here.
+RUN git clone --depth 1 --branch v5.4 https://github.com/Audiveris/audiveris.git .
 RUN ./gradlew clean build -x test
 
 # ---- Stage 4: Python backend that also serves the built frontend ----
