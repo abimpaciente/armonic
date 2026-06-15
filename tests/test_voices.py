@@ -6,8 +6,11 @@ import tempfile
 from music21 import chord, instrument, stream, tempo
 
 from armonic.voices import (
+    CHOIR_PROGRAM,
     DEFAULT_TEMPO,
+    PIANO_PROGRAM,
     VOICE_ORDER,
+    restyle_midi,
     retempo_midi,
     split_satb,
     write_practice_tracks,
@@ -51,18 +54,41 @@ def test_practice_tracks_use_choir_and_default_tempo():
     assert tempos == {DEFAULT_TEMPO}
 
 
-def test_retempo_changes_bpm_and_keeps_timbre():
+def _programs_tempos(path):
     from music21 import converter
 
+    s = converter.parse(path)
+    programs = {i.midiProgram for i in s.recurse().getElementsByClass(instrument.Instrument)}
+    tempos = {t.number for t in s.recurse().getElementsByClass(tempo.MetronomeMark)}
+    return programs, tempos
+
+
+def test_retempo_changes_bpm_and_keeps_timbre():
     satb = split_satb(_closed_score())
     out = tempfile.mkdtemp()
     write_practice_tracks(satb, out)
-    src = os.path.join(out, "bass_solo.mid")
     dest = os.path.join(out, "cache", "bass_solo__60.mid")
 
-    retempo_midi(src, 60, dest)
-    s = converter.parse(dest)
-    programs = {i.midiProgram for i in s.recurse().getElementsByClass(instrument.Instrument)}
-    tempos = {t.number for t in s.recurse().getElementsByClass(tempo.MetronomeMark)}
-    assert programs == {52}
+    retempo_midi(os.path.join(out, "bass_solo.mid"), 60, dest)
+    programs, tempos = _programs_tempos(dest)
+    assert programs == {CHOIR_PROGRAM}
+    assert tempos == {60}
+
+
+def test_restyle_to_piano_replaces_timbre_cleanly():
+    satb = split_satb(_closed_score())
+    out = tempfile.mkdtemp()
+    write_practice_tracks(satb, out)
+    src = os.path.join(out, "soprano_realce.mid")  # varias voces
+
+    piano = os.path.join(out, "cache", "piano.mid")
+    restyle_midi(src, piano, program=PIANO_PROGRAM)
+    programs, tempos = _programs_tempos(piano)
+    assert programs == {PIANO_PROGRAM}  # sin coro fantasma
+    assert tempos == {DEFAULT_TEMPO}
+
+    piano60 = os.path.join(out, "cache", "piano60.mid")
+    restyle_midi(src, piano60, bpm=60, program=PIANO_PROGRAM)
+    programs, tempos = _programs_tempos(piano60)
+    assert programs == {PIANO_PROGRAM}
     assert tempos == {60}

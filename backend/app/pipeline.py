@@ -101,15 +101,34 @@ def _title_from_musicxml(path: Path) -> Optional[str]:
     return best
 
 
+# Nombres de archivo autogenerados que NO sirven como título de himno.
+_GENERIC_RE = re.compile(
+    r"screenshot|captura|whats?app|chrome|photo|foto|image|imagen|img|"
+    r"scan|escaneo|untitled|sin[ _-]?titulo|document|^dsc|^pxl|^20\d{2}",
+    re.I,
+)
+
+
+def _clean_fallback(name: str) -> str:
+    """Convierte un nombre de archivo en un título legible. Si parece
+    autogenerado (Screenshot_2026…, IMG_1234…), usa un placeholder neutro."""
+    pretty = re.sub(r"[_\-]+", " ", name).strip()
+    pretty = re.sub(r"\s+", " ", pretty)
+    digits = sum(c.isdigit() for c in pretty)
+    if _GENERIC_RE.search(pretty) or (pretty and digits >= max(4, len(pretty) // 2)):
+        return "Himno sin título"
+    return pretty or "Himno sin título"
+
+
 def _resolve_title(score: stream.Score, score_path: Path, fallback: str) -> str:
-    """Título OCR si existe; si no, el de la metadata; si no, el de respaldo."""
+    """Título OCR si existe; si no, el de la metadata; si no, uno limpio."""
     ocr = _title_from_musicxml(score_path)
     if ocr:
         return ocr
     md = score.metadata
     if md is not None and md.title and not _looks_like_filename(md.title):
         return md.title
-    return fallback
+    return _clean_fallback(fallback)
 
 
 def process(input_path: Path, hymn_id: str, work_dir: Path,

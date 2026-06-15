@@ -10,7 +10,10 @@ export interface Hymn {
   notes_per_voice: Record<string, number>;
   duration_seconds: number;
   tracks: string[];
+  image_ext?: string | null;
 }
+
+export type Timbre = 'voz' | 'piano';
 
 export interface JobStatus {
   job_id: string;
@@ -46,12 +49,23 @@ export class ApiService {
     return this.http.delete<{ deleted: string }>(`/api/hymn/${id}`);
   }
 
+  rename(id: string, title: string): Observable<{ hymn_id: string; title: string }> {
+    return this.http.patch<{ hymn_id: string; title: string }>(`/api/hymn/${id}`, { title });
+  }
+
+  imageUrl(id: string): string {
+    return `/api/hymn/${id}/image`;
+  }
+
   clearLibrary(): Observable<{ deleted: number }> {
     return this.http.delete<{ deleted: number }>('/api/hymns');
   }
 
-  midiUrl(hymnId: string, track: string, tempo?: number): string {
-    const base = `/api/hymn/${hymnId}/midi/${track}`;
-    return tempo ? `${base}?tempo=${tempo}` : base;
+  midiUrl(hymnId: string, track: string, tempo?: number, timbre?: Timbre): string {
+    const params = new URLSearchParams();
+    if (tempo) params.set('tempo', String(tempo));
+    if (timbre && timbre !== 'voz') params.set('timbre', timbre);
+    const qs = params.toString();
+    return `/api/hymn/${hymnId}/midi/${track}${qs ? '?' + qs : ''}`;
   }
 }

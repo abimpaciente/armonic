@@ -32,6 +32,12 @@ VOICE_ORDER = ["soprano", "alto", "tenor", "bass"]
 # que un coro pueda seguir la línea. El front permite ajustarlo con un slider.
 DEFAULT_TEMPO = 84
 
+# Timbres disponibles (programas General MIDI). Las pistas se generan con voz
+# coral ("aah"); el front puede pedir piano y el backend lo reescribe al vuelo.
+CHOIR_PROGRAM = 52   # Choir Aahs
+PIANO_PROGRAM = 0    # Acoustic Grand Piano
+TIMBRES = {"voz": CHOIR_PROGRAM, "coro": CHOIR_PROGRAM, "piano": PIANO_PROGRAM}
+
 
 def _split_staff(part: stream.Part, top_name: str, bottom_name: str
                  ) -> Dict[str, stream.Part]:
@@ -150,15 +156,46 @@ def write_practice_tracks(satb: stream.Score, out_dir: str,
     return written
 
 
-def retempo_midi(src_path: str, bpm: int, dest_path: str) -> str:
-    """Reescribe un MIDI existente a un nuevo tempo (BPM), conservando notas,
-    velocidades e instrumento. Devuelve ``dest_path``."""
+def _instrument_for(program: int) -> instrument.Instrument:
+    """Instancia el instrumento adecuado para un programa General MIDI."""
+    if program == CHOIR_PROGRAM:
+        return instrument.Choir()
+    if program == PIANO_PROGRAM:
+        return instrument.Piano()
+    inst = instrument.Instrument()
+    inst.midiProgram = program
+    return inst
+
+
+def restyle_midi(src_path: str, dest_path: str,
+                 bpm: int | None = None,
+                 program: int | None = None) -> str:
+    """Reescribe un MIDI cambiando tempo y/o timbre, conservando notas y
+    velocidades. ``bpm``/``program`` en ``None`` se dejan como estaban.
+    Devuelve ``dest_path``."""
     score = converter.parse(str(src_path))
-    for mm in list(score.recurse().getElementsByClass(tempo.MetronomeMark)):
-        if mm.activeSite is not None:
-            mm.activeSite.remove(mm)
-    target = score.parts[0] if score.parts else score
-    target.insert(0, tempo.MetronomeMark(number=bpm))
+
+    if bpm is not None:
+        for mm in list(score.recurse().getElementsByClass(tempo.MetronomeMark)):
+            if mm.activeSite is not None:
+                mm.activeSite.remove(mm)
+        target = score.parts[0] if score.parts else score
+        target.insert(0, tempo.MetronomeMark(number=bpm))
+
+    if program is not None:
+        for part in (score.parts or [score]):
+            # Reemplaza el instrumento por completo: mutar el midiProgram de
+            # una subclase (p. ej. Choir) deja un cambio de programa fantasma.
+            for inst in list(part.recurse().getElementsByClass(instrument.Instrument)):
+                if inst.activeSite is not None:
+                    inst.activeSite.remove(inst)
+            part.insert(0, _instrument_for(program))
+
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     score.write("midi", fp=str(dest_path))
     return dest_path
+
+
+def retempo_midi(src_path: str, bpm: int, dest_path: str) -> str:
+    """Atajo de :func:`restyle_midi` que solo cambia el tempo."""
+    return restyle_midi(src_path, dest_path, bpm=bpm)

@@ -14,9 +14,15 @@ from pathlib import Path
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from armonic.voices import DEFAULT_TEMPO, retempo_midi
+from armonic.voices import (
+    CHOIR_PROGRAM,
+    DEFAULT_TEMPO,
+    TIMBRES,
+    restyle_midi,
+)
 
 from .config import settings
 from .pipeline import process
@@ -29,6 +35,9 @@ VOICE_ORDER = ["soprano", "alto", "tenor", "bass"]
 
 def _persist_result(result, work_dir: Path) -> None:
     """Registra el himno en el store y copia sus MIDI a una carpeta servible."""
+    # Si la entrada fue una imagen, queda guardada como source<ext> y se puede
+    # mostrar en el visualizador (la foto con la letra y las notas).
+    image_ext = result.source_ext if result.source_ext in settings.image_exts else None
     hymn = {
         "hymn_id": result.hymn_id,
         "title": result.title,
@@ -37,6 +46,7 @@ def _persist_result(result, work_dir: Path) -> None:
         "notes_per_voice": result.notes_per_voice,
         "duration_seconds": result.duration_seconds,
         "tracks": sorted(result.midi_files.keys()),
+        "image_ext": image_ext,
     }
     midi_dir = work_dir / "midi"
     midi_dir.mkdir(parents=True, exist_ok=True)
@@ -142,6 +152,40 @@ def get_hymn(hymn_id: str) -> dict:
     return hymn
 
 
+_IMAGE_MEDIA = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+    ".tif": "image/tiff", ".tiff": "image/tiff", ".bmp": "image/bmp",
+}
+
+
+@app.get("/api/hymn/{hymn_id}/image")
+def get_image(hymn_id: str) -> FileResponse:
+    hymn = store.get_hymn(hymn_id)
+    if hymn is None:
+        raise HTTPException(404, "Himno no encontrado")
+    ext = hymn.get("image_ext")
+    if not ext:
+        raise HTTPException(404, "Este himno no tiene imagen original")
+    path = settings.storage_dir / hymn_id / f"source{ext}"
+    if not path.exists():
+        raise HTTPException(404, "Imagen no encontrada")
+    return FileResponse(path, media_type=_IMAGE_MEDIA.get(ext, "application/octet-stream"))
+
+
+class RenameBody(BaseModel):
+    title: str
+
+
+@app.patch("/api/hymn/{hymn_id}")
+def rename_hymn(hymn_id: str, body: RenameBody) -> dict:
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(400, "El título no puede estar vacío")
+    if not store.rename_hymn(hymn_id, title):
+        raise HTTPException(404, "Himno no encontrado")
+    return {"hymn_id": hymn_id, "title": title}
+
+
 def _delete_hymn_files(hymn_id: str) -> None:
     """Borra la carpeta de un himno, siempre dentro de storage_dir."""
     work_dir = (settings.storage_dir / hymn_id).resolve()
@@ -171,30 +215,40 @@ def get_midi(
     track: str,
     tempo: int | None = Query(None, ge=40, le=160,
                               description="BPM de ensayo; por defecto el original"),
+    timbre: str = Query("voz", description="'voz' (coro) o 'piano'"),
 ) -> FileResponse:
     hymn = store.get_hymn(hymn_id)
     if hymn is None:
         raise HTTPException(404, "Himno no encontrado")
     if track not in hymn["tracks"]:
         raise HTTPException(404, f"Pista no encontrada: {track}")
+    program = TIMBRES.get(timbre)
+    if program is None:
+        raise HTTPException(400, f"Timbre no soportado: {timbre}")
     path = settings.storage_dir / hymn_id / "midi" / f"{track}.mid"
     if not path.exists():
         raise HTTPException(404, "Archivo MIDI no encontrado")
 
-    # Sin tempo (o el de por defecto) -> sirve el MIDI tal cual.
-    if tempo is None or tempo == DEFAULT_TEMPO:
+    # El MIDI base ya es coro (CHOIR_PROGRAM) al tempo por defecto: si piden
+    # justo eso, se sirve tal cual; si no, se genera (y cachea) una variante.
+    want_tempo = tempo is not None and tempo != DEFAULT_TEMPO
+    want_piano = program != CHOIR_PROGRAM
+    if not want_tempo and not want_piano:
         return FileResponse(path, media_type="audio/midi",
                             filename=f"{track}.mid")
 
-    # Tempo personalizado -> genera (y cachea) una copia reajustada.
-    cached = settings.storage_dir / hymn_id / "midi" / "cache" / f"{track}__{tempo}.mid"
+    bpm = tempo if want_tempo else DEFAULT_TEMPO
+    cached = (settings.storage_dir / hymn_id / "midi" / "cache"
+              / f"{track}__{timbre}_{bpm}.mid")
     if not cached.exists():
         try:
-            retempo_midi(str(path), tempo, str(cached))
+            restyle_midi(str(path), str(cached),
+                         bpm=tempo if want_tempo else None,
+                         program=program if want_piano else None)
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"No se pudo ajustar el tempo: {exc}")
+            raise HTTPException(500, f"No se pudo generar la variante: {exc}")
     return FileResponse(cached, media_type="audio/midi",
-                        filename=f"{track}_{tempo}bpm.mid")
+                        filename=f"{track}_{timbre}_{bpm}bpm.mid")
 
 
 class SPAStaticFiles(StaticFiles):
