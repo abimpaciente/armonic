@@ -3,9 +3,16 @@
 Prototipo de **armonización automática a 4 voces** (SATB) a partir de una
 melodía en MusicXML, construido con [music21](https://web.mit.edu/music21/).
 
-Este es el **núcleo de armonía** del proyecto (sin OMR ni frontend todavía):
-dada una melodía, genera un coral a cuatro voces aplicando reglas básicas de
-armonía tonal y conducción de voces.
+Este es el **núcleo de armonía** del proyecto (sin OMR ni frontend todavía).
+Cubre dos casos de uso:
+
+- **Caso A — Separar voces** (`armonic.voices`): una partitura que ya viene a
+  4 voces en *partitura cerrada* (2 pentagramas con Soprano+Alto y Tenor+Bajo,
+  como en muchos himnarios) se separa en las 4 voces individuales y genera
+  pistas de ensayo por voz ("dame mi voz de contralto para practicar").
+- **Caso B — Generar armonía** (`armonic.harmony`): dada solo una melodía,
+  genera un coral a 4 voces aplicando reglas básicas de armonía tonal y
+  conducción de voces.
 
 ## Qué hace
 
@@ -59,6 +66,34 @@ coral.write("musicxml", fp="coral.musicxml")
 13     C4    C4    E3    G2   I    (cadencia V–I)
 ```
 
+## Separación de voces (Caso A)
+
+Si tienes una partitura coral cerrada (MIDI o MusicXML exportado de MuseScore,
+con 2 pentagramas), sepárala en 4 voces y genera pistas de ensayo:
+
+```bash
+python examples/separate_voices.py himno.mid practice/
+```
+
+Esto escribe en `practice/`:
+
+- `soprano_solo.mid`, `alto_solo.mid`, `tenor_solo.mid`, `bass_solo.mid`
+  — cada voz aislada.
+- `<voz>_realce.mid` — esa voz fuerte y las demás de fondo (aprender tu parte
+  con contexto).
+- `satb_completo.mid` — las cuatro voces equilibradas.
+
+Desde Python:
+
+```python
+from music21 import converter
+from armonic.voices import split_satb, write_practice_tracks
+
+score = converter.parse("himno.mid")
+satb = split_satb(score)            # 4 partes: soprano, alto, tenor, bass
+write_practice_tracks(satb, "practice/")
+```
+
 ## Pruebas
 
 ```bash
@@ -69,11 +104,13 @@ python -m pytest -q
 
 ```
 armonic/
-  __init__.py     # API pública: harmonize(), harmonize_file()
-  harmony.py      # núcleo: análisis, elección de acordes y voces
-  cli.py          # interfaz de línea de comandos
+  __init__.py        # API pública: harmonize(), harmonize_file()
+  harmony.py         # Caso B: análisis, elección de acordes y voces
+  voices.py          # Caso A: separar partitura cerrada + pistas de ensayo
+  cli.py             # interfaz de línea de comandos
 examples/
-  make_sample.py  # genera un MusicXML de melodía de ejemplo
+  make_sample.py     # genera un MusicXML de melodía de ejemplo
+  separate_voices.py # separa una partitura cerrada en pistas por voz
 tests/
   test_harmony.py
 ```

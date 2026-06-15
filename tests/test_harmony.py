@@ -93,3 +93,45 @@ def test_empty_melody_raises():
     except ValueError:
         return
     raise AssertionError("Se esperaba ValueError con melodía vacía")
+
+
+def test_split_satb_from_closed_score():
+    """Una partitura cerrada (2 pentagramas con acordes de 2 voces) se separa
+    en 4 voces independientes, aguda arriba y grave abajo."""
+    from music21 import chord as m21chord
+
+    from armonic.voices import split_satb
+
+    score = stream.Score()
+    top = stream.Part()      # Soprano + Alto
+    bottom = stream.Part()   # Tenor + Bajo
+    top.append(m21chord.Chord(["A4", "D4"]))   # S=A4, A=D4
+    top.append(m21chord.Chord(["B4", "D4"]))
+    bottom.append(m21chord.Chord(["F#3", "D3"]))  # T=F#3, B=D3
+    bottom.append(m21chord.Chord(["G3", "D3"]))
+    score.insert(0, top)
+    score.insert(0, bottom)
+
+    satb = split_satb(score)
+    voices = {p.id: list(p.flatten().notes) for p in satb.parts}
+    assert set(voices) == {"soprano", "alto", "tenor", "bass"}
+    assert voices["soprano"][0].pitch.nameWithOctave == "A4"
+    assert voices["alto"][0].pitch.nameWithOctave == "D4"
+    assert voices["tenor"][0].pitch.nameWithOctave == "F#3"
+    assert voices["bass"][0].pitch.nameWithOctave == "D3"
+    # En cada instante la aguda está por encima de la grave.
+    for hi, lo in (("soprano", "alto"), ("tenor", "bass")):
+        for nh, nl in zip(voices[hi], voices[lo]):
+            assert nh.pitch.midi >= nl.pitch.midi
+
+
+def test_split_satb_requires_two_staves():
+    from armonic.voices import split_satb
+
+    score = stream.Score()
+    score.insert(0, stream.Part())
+    try:
+        split_satb(score)
+    except ValueError:
+        return
+    raise AssertionError("Se esperaba ValueError con menos de 2 pentagramas")
