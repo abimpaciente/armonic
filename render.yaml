@@ -1,0 +1,25 @@
+# Render Blueprint — despliega armonic (backend + frontend) desde el Dockerfile.
+# Render lo detecta solo: New + → Blueprint → conecta este repo.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: armonic
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # Plan gratis: el disco es efímero (la biblioteca se borra al reiniciar).
+    # Para persistir himnos, sube a un plan de pago y descomenta el bloque
+    # "disk" de abajo, apuntando ARMONIC_STORAGE a su mountPath.
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ARMONIC_STORAGE
+        value: /app/storage
+      - key: ARMONIC_MAX_UPLOAD_MB
+        value: "25"
+    # --- Persistencia (requiere plan de pago) -------------------------------
+    # disk:
+    #   name: armonic-data
+    #   mountPath: /app/storage
+    #   sizeGB: 1
+    # ------------------------------------------------------------------------

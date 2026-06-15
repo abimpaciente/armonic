@@ -40,6 +40,6 @@ storage/
 
 # Other
 .dockerignore
-Dockerfile
 docker-compose.yml
-README.md
+# NOTE: README.md is referenced by pyproject.toml (readme = "README.md"),
+# so it must stay in the build context or `pip install -e` fails.

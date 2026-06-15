@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import settings
 from .pipeline import process
@@ -116,7 +117,22 @@ def get_midi(hymn_id: str, track: str) -> FileResponse:
     return FileResponse(path, media_type="audio/midi", filename=f"{track}.mid")
 
 
-# Página de prueba estática (montada al final para no tapar /api)
+class SPAStaticFiles(StaticFiles):
+    """Sirve archivos estáticos y, para rutas desconocidas (no /api ni un
+    archivo real), devuelve index.html para que el router de Angular maneje
+    enlaces profundos como /hymn/xyz al recargar la página."""
+
+    async def get_response(self, path: str, scope):  # type: ignore[override]
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
+
+
+# Frontend (app Angular compilada en producción; página de prueba en local).
+# Montado al final para no tapar /api.
 _static_dir = Path(__file__).resolve().parent.parent / "static"
 if _static_dir.exists():
-    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="static")
+    app.mount("/", SPAStaticFiles(directory=str(_static_dir), html=True), name="static")

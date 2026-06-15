@@ -35,9 +35,11 @@ Sibelius o renderizar en web con VexFlow/OpenSheetMusicDisplay.
 ### Opción A: Con Docker (recomendado para MVP)
 
 ```bash
-docker-compose up --build
-# Abre http://localhost:8000 (backend) y http://localhost:4200 (frontend)
+docker compose up --build
+# Abre http://localhost:8000  (frontend + API juntos en el mismo dominio)
 ```
+
+Para desplegarlo en la nube con una URL pública, ver **[DEPLOY.md](DEPLOY.md)**.
 
 ### Opción B: Local
 
