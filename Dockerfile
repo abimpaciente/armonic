@@ -6,8 +6,8 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# ---- Stage 3: Build Audiveris from source ----
-FROM gradle:8.5 AS audiveris-builder
+# ---- Stage 3: Build Audiveris from source (needs JDK 21) ----
+FROM gradle:8.5-jdk21 AS audiveris-builder
 WORKDIR /audiveris
 RUN git clone --depth 1 https://github.com/Audiveris/audiveris.git .
 RUN ./gradlew clean build -x test
@@ -16,9 +16,12 @@ RUN ./gradlew clean build -x test
 FROM python:3.11-slim
 WORKDIR /app
 
-# Install system dependencies for OMR (Audiveris + Tesseract)
+# Java 21 runtime for Audiveris (copied from Temurin; Debian slim has no openjdk-21).
+# libtesseract is needed by Audiveris' OCR (via JNI); tesseract-ocr pulls it in.
+COPY --from=eclipse-temurin:21-jre /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="$JAVA_HOME/bin:$PATH"
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-21-jre-headless \
     tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 

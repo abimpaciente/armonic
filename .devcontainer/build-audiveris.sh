@@ -1,42 +1,48 @@
 #!/bin/bash
+# Build and install Audiveris 5.4 from source into /opt/audiveris.
+# Works in GitHub Codespaces or any Linux box with Java 21 + git.
 set -e
 
-echo "🎼 Building Audiveris from source..."
-echo "   This will take 10-15 minutes on first run."
-echo ""
-
-BUILD_DIR="/tmp/audiveris-build"
 INSTALL_PREFIX="/opt/audiveris"
+BUILD_DIR="/tmp/audiveris-build"
 
-# Clone Audiveris if not already cloned
-if [ ! -d "$BUILD_DIR" ]; then
-    echo "📥 Cloning Audiveris repository..."
-    git clone --depth 1 https://github.com/Audiveris/audiveris.git "$BUILD_DIR"
+# Use sudo only if we are not already root.
+SUDO=""
+if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi
+
+echo "🎼 Installing Audiveris OMR..."
+
+# 1. Java 21 is required to build AND run Audiveris 5.4.
+if ! java -version 2>&1 | grep -q '"21'; then
+    echo "❌ Java 21 not found. Current java:"
+    java -version 2>&1 || echo "   (no java on PATH)"
+    echo "   In Codespaces, switch with:  sudo update-alternatives --config java"
+    echo "   or rebuild the container (uses the java:21 devcontainer)."
+    exit 1
 fi
 
-# Build Audiveris
+# 2. Tesseract (Audiveris uses libtesseract via JNI).
+echo "📦 Installing Tesseract OCR..."
+$SUDO apt-get update -qq
+$SUDO apt-get install -y --no-install-recommends tesseract-ocr
+
+# 3. Clone + build (~10-15 min the first time).
+if [ ! -d "$BUILD_DIR" ]; then
+    echo "📥 Cloning Audiveris..."
+    git clone --depth 1 https://github.com/Audiveris/audiveris.git "$BUILD_DIR"
+fi
 echo "⚙️  Building Audiveris (this takes ~10-15 minutes)..."
 cd "$BUILD_DIR"
 ./gradlew clean build -x test
 
-# Extract and install
-echo "📦 Installing Audiveris..."
-mkdir -p "$INSTALL_PREFIX"
-tar -xf app/build/distributions/app-5.4.tar -C "$INSTALL_PREFIX" --strip-components=1
+# 4. Install the distribution.
+echo "📦 Installing to $INSTALL_PREFIX ..."
+$SUDO mkdir -p "$INSTALL_PREFIX"
+$SUDO tar -xf app/build/distributions/app-5.4.tar -C "$INSTALL_PREFIX" --strip-components=1
+$SUDO ln -sf "$INSTALL_PREFIX/bin/Audiveris" /usr/local/bin/audiveris
 
-# Create wrapper script that handles environment
-mkdir -p /usr/local/bin
-cat > /usr/local/bin/audiveris << 'WRAPPER'
-#!/bin/bash
-# Audiveris wrapper that sets TESSDATA_PREFIX if not already set
-if [ -z "$TESSDATA_PREFIX" ]; then
-    export TESSDATA_PREFIX="/usr/share/tesseract-ocr/4.00/tessdata"
-fi
-exec /opt/audiveris/bin/Audiveris "$@"
-WRAPPER
-chmod +x /usr/local/bin/audiveris
-
-echo "✅ Audiveris installed successfully!"
 echo ""
-echo "Available as: audiveris (or /opt/audiveris/bin/Audiveris)"
-echo "Test with: audiveris --version"
+echo "✅ Audiveris installed at $INSTALL_PREFIX/bin/Audiveris"
+echo ""
+echo "Now point the backend at it and restart:"
+echo "  export AUDIVERIS_BIN=\"$INSTALL_PREFIX/bin/Audiveris\""
