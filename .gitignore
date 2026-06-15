@@ -9,6 +9,8 @@ armonizado.musicxml
 examples/twinkle.musicxml
 practice/
 omr_out/
+omr_*.musicxml
+omr_*.mid
 *.mid
 *.midi
 *.pdf
