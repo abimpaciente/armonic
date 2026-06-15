@@ -32,11 +32,22 @@ Sibelius o renderizar en web con VexFlow/OpenSheetMusicDisplay.
 
 ## Instalación
 
+### Opción A: Con Docker (recomendado para MVP)
+
+```bash
+docker-compose up --build
+# Abre http://localhost:8000 (backend) y http://localhost:4200 (frontend)
+```
+
+### Opción B: Local
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Uso
+
+### Armonizar desde CLI
 
 Genera una melodía de ejemplo ("Twinkle, Twinkle Little Star") y armonízala:
 

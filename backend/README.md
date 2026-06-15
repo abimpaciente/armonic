@@ -6,6 +6,16 @@ voz. Incluye una página de prueba en `/`.
 
 ## Requisitos
 
+### Opción A: Docker (recomendado)
+
+- Docker 20+ y Docker Compose 1.29+
+- ```bash
+  docker-compose up --build
+  ```
+- Abre <http://localhost:8000/> para la página de prueba.
+
+### Opción B: Local
+
 - Python 3.10+ con el paquete `armonic` instalado:
   ```bash
   pip install -e ".[backend]"     # desde la raíz del repo
@@ -23,7 +33,7 @@ voz. Incluye una página de prueba en `/`.
 | `TESSDATA_PREFIX` | Datos de Tesseract (requerido por Audiveris) | `/usr/share/tesseract-ocr/5/tessdata` |
 | `ARMONIC_MAX_UPLOAD_MB` | Límite de subida | `25` |
 
-## Arrancar
+## Arrancar (Local)
 
 ```bash
 export AUDIVERIS_BIN=/opt/app-5.4/bin/Audiveris        # opcional (OMR)
@@ -34,6 +44,18 @@ uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Abre <http://localhost:8000/> para la página de prueba.
+
+## Arrancar (Docker)
+
+```bash
+# Desde la raíz del proyecto
+docker-compose up --build
+
+# En otra terminal, prueba la API:
+curl http://localhost:8000/api/health
+```
+
+El contenedor monta un volumen `storage` para persistir himnos y MIDI entre reinicios.
 
 ## Endpoints
 

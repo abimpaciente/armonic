@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # Storage directory for hymns, MIDI files, and Audiveris temp outputs
+      ARMONIC_STORAGE: /app/storage
+
+      # OMR / Audiveris configuration (optional for MVP)
+      # If you have Audiveris installed on host, mount it and set:
+      # AUDIVERIS_BIN: /opt/audiveris/bin/audiveris
+      # TESSDATA_PREFIX: /usr/share/tesseract-ocr-4/tessdata
+
+      # Max upload size (MB)
+      ARMONIC_MAX_UPLOAD_MB: 25
+
+    volumes:
+      # Persist hymns and MIDI files across container restarts
+      - storage:/app/storage
+
+      # (Optional) If you want to use host's Audiveris, mount it:
+      # - /opt/audiveris:/opt/audiveris:ro
+      # - /usr/share/tesseract-ocr-4:/usr/share/tesseract-ocr-4:ro
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # (Optional) Frontend service - uncomment to run Angular dev server in Docker
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "4200:4200"
+  #   volumes:
+  #     - ./frontend/src:/app/src
+  #     - ./frontend/public:/app/public
+  #   depends_on:
+  #     - backend
+  #   environment:
+  #     - API_URL=http://backend:8000
+
+volumes:
+  storage:
+    driver: local
