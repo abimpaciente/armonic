@@ -6,6 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
+# Evita el prompt interactivo de analíticas de Angular CLI (bloquea el build).
+export NG_CLI_ANALYTICS=false
+
 SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 if command -v apt-get >/dev/null 2>&1; then PM="apt"
 elif command -v apk >/dev/null 2>&1; then PM="apk"
