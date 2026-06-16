@@ -12,14 +12,26 @@ if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi
 
 echo "🎼 Installing Audiveris OMR..."
 
-# 1. Java 21 is required to build AND run Audiveris 5.4.
-if ! java -version 2>&1 | grep -q '"21'; then
-    echo "❌ Java 21 not found. Current java:"
+# 1. Java 21 is required to build AND run Audiveris 5.4. Auto-install Temurin
+#    21 if it's missing (default Codespaces images may ship no JDK at all).
+if ! java -version 2>&1 | grep -q 'version "21'; then
+    echo "☕ Java 21 not found; installing Temurin 21…"
+    $SUDO apt-get update -qq
+    $SUDO apt-get install -y -qq wget apt-transport-https gpg ca-certificates
+    wget -qO- https://packages.adoptium.net/artifactory/api/gpg/key/public \
+        | gpg --dearmor | $SUDO tee /etc/apt/trusted.gpg.d/adoptium.gpg >/dev/null
+    . /etc/os-release
+    echo "deb https://packages.adoptium.net/artifactory/deb ${VERSION_CODENAME} main" \
+        | $SUDO tee /etc/apt/sources.list.d/adoptium.list >/dev/null
+    $SUDO apt-get update -qq
+    $SUDO apt-get install -y temurin-21-jdk
+fi
+if ! java -version 2>&1 | grep -q 'version "21'; then
+    echo "❌ Could not get Java 21 on PATH. Current java:"
     java -version 2>&1 || echo "   (no java on PATH)"
-    echo "   In Codespaces, switch with:  sudo update-alternatives --config java"
-    echo "   or rebuild the container (uses the java:21 devcontainer)."
     exit 1
 fi
+echo "☕ Using: $(java -version 2>&1 | head -1)"
 
 # 2. Tesseract (Audiveris uses libtesseract via JNI).
 echo "📦 Installing Tesseract OCR..."
