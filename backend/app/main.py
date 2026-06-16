@@ -21,11 +21,12 @@ from armonic.voices import (
     CHOIR_PROGRAM,
     DEFAULT_TEMPO,
     TIMBRES,
+    VOICE_ORDER as SATB_VOICES,
+    build_mix,
     restyle_midi,
 )
-
 from .config import settings
-from .pipeline import process
+from .pipeline import process, rebuild_karaoke
 from .store import store
 
 app = FastAPI(title="armonic API", version="0.1.0")
@@ -190,6 +191,62 @@ def rename_hymn(hymn_id: str, body: RenameBody) -> dict:
     if not store.rename_hymn(hymn_id, title):
         raise HTTPException(404, "Himno no encontrado")
     return {"hymn_id": hymn_id, "title": title}
+
+
+class LyricsBody(BaseModel):
+    verses: list[str]
+
+
+@app.patch("/api/hymn/{hymn_id}/lyrics")
+def update_lyrics(hymn_id: str, body: LyricsBody) -> dict:
+    hymn = store.get_hymn(hymn_id)
+    if hymn is None:
+        raise HTTPException(404, "Himno no encontrado")
+    verses = [v.strip() for v in body.verses if v.strip()]
+    old_karaoke = (hymn.get("lyrics") or {}).get("karaoke", [])
+    lyrics = (
+        {"verses": verses, "karaoke": rebuild_karaoke(verses, old_karaoke)}
+        if verses else None
+    )
+    store.set_lyrics(hymn_id, lyrics)
+    return {"lyrics": lyrics}
+
+
+@app.get("/api/hymn/{hymn_id}/mix")
+def get_mix(
+    hymn_id: str,
+    soprano: int = Query(90, ge=0, le=127),
+    alto: int = Query(90, ge=0, le=127),
+    tenor: int = Query(90, ge=0, le=127),
+    bass: int = Query(90, ge=0, le=127),
+    tempo: int | None = Query(None, ge=40, le=160),
+    timbre: str = Query("voz"),
+) -> FileResponse:
+    """Mezcla SATB con un volumen por voz (sliders en el front)."""
+    hymn = store.get_hymn(hymn_id)
+    if hymn is None:
+        raise HTTPException(404, "Himno no encontrado")
+    program = TIMBRES.get(timbre)
+    if program is None:
+        raise HTTPException(400, f"Timbre no soportado: {timbre}")
+    bpm = tempo or DEFAULT_TEMPO
+    vels = {"soprano": soprano, "alto": alto, "tenor": tenor, "bass": bass}
+
+    midi_dir = settings.storage_dir / hymn_id / "midi"
+    solo_paths = {v: str(midi_dir / f"{v}_solo.mid") for v in SATB_VOICES
+                  if (midi_dir / f"{v}_solo.mid").exists()}
+    if not solo_paths:
+        raise HTTPException(404, "No hay pistas para mezclar")
+
+    key = "-".join(str(vels[v]) for v in SATB_VOICES)
+    cached = midi_dir / "cache" / f"mix_{key}_{timbre}_{bpm}.mid"
+    if not cached.exists():
+        try:
+            build_mix(solo_paths, vels, str(cached), bpm=bpm, program=program)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"No se pudo generar la mezcla: {exc}")
+    return FileResponse(cached, media_type="audio/midi",
+                        filename=f"mezcla_{key}.mid")
 
 
 def _delete_hymn_files(hymn_id: str) -> None:

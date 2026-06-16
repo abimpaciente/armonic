@@ -61,5 +61,8 @@ def test_extract_lyrics_builds_verses_and_timeline():
     res = _extract_lyrics(s)
     assert res is not None
     assert res["verses"][0] == "Gloria a Dios"          # sílabas unidas
-    assert [e["w"] for e in res["timeline"]] == ["Gloria", "a", "Dios"]
-    assert res["timeline"][0]["t"] == 0.0
+    words = ["".join(s["s"] for s in w["syllables"]) for w in res["karaoke"]]
+    assert words == ["Gloria", "a", "Dios"]
+    assert res["karaoke"][0]["syllables"] == [
+        {"s": "Glo", "t": 0.0}, {"s": "ria", "t": 1.0}
+    ]

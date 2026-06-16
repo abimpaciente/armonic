@@ -199,3 +199,32 @@ def restyle_midi(src_path: str, dest_path: str,
 def retempo_midi(src_path: str, bpm: int, dest_path: str) -> str:
     """Atajo de :func:`restyle_midi` que solo cambia el tempo."""
     return restyle_midi(src_path, dest_path, bpm=bpm)
+
+
+def build_mix(solo_paths: Dict[str, str], velocities: Dict[str, int],
+              dest_path: str, bpm: int = DEFAULT_TEMPO,
+              program: int = CHOIR_PROGRAM) -> str:
+    """Arma una mezcla SATB con un volumen (velocidad) por voz.
+
+    ``solo_paths``/``velocities`` van indexados por voz (soprano…bass). Toma
+    cada MIDI solo, le aplica su velocidad y los junta en un solo MIDI al
+    tempo y timbre dados. Una voz con velocidad 0 se omite.
+    """
+    mix = stream.Score()
+    for name in VOICE_ORDER:
+        path = solo_paths.get(name)
+        vel = int(velocities.get(name, 0))
+        if not path or vel <= 0:
+            continue
+        part = converter.parse(str(path)).parts[0].flatten()
+        for el in list(part.getElementsByClass((instrument.Instrument,
+                                                tempo.MetronomeMark))):
+            part.remove(el)
+        part.insert(0, _instrument_for(program))
+        part.insert(0, tempo.MetronomeMark(number=bpm))
+        for n in part.notes:
+            n.volume = volume.Volume(velocity=max(1, min(127, vel)))
+        mix.insert(0, part)
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    mix.write("midi", fp=str(dest_path))
+    return dest_path

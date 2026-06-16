@@ -60,6 +60,16 @@ class Store:
     def get_hymn(self, hymn_id: str) -> Optional[dict]:
         return self.hymns.get(hymn_id)
 
+    def set_lyrics(self, hymn_id: str, lyrics: Optional[dict]) -> bool:
+        """Reemplaza la letra de un himno. Devuelve True si existía."""
+        with self._lock:
+            hymn = self.hymns.get(hymn_id)
+            if hymn is None:
+                return False
+            hymn["lyrics"] = lyrics
+            self._save()
+        return True
+
     def rename_hymn(self, hymn_id: str, title: str) -> bool:
         """Cambia el título de un himno. Devuelve True si existía."""
         with self._lock:

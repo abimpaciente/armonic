@@ -2,8 +2,10 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
-export interface LyricWord { t: number; w: string; }
-export interface Lyrics { verses: string[]; timeline: LyricWord[]; }
+export interface Syllable { s: string; t: number; }
+export interface KaraokeWord { syllables: Syllable[]; }
+export interface Lyrics { verses: string[]; karaoke: KaraokeWord[]; }
+export interface VoiceVols { soprano: number; alto: number; tenor: number; bass: number; }
 
 export interface Hymn {
   hymn_id: string;
@@ -58,8 +60,23 @@ export class ApiService {
     return this.http.patch<{ hymn_id: string; title: string }>(`/api/hymn/${id}`, { title });
   }
 
+  updateLyrics(id: string, verses: string[]): Observable<{ lyrics: Lyrics | null }> {
+    return this.http.patch<{ lyrics: Lyrics | null }>(`/api/hymn/${id}/lyrics`, { verses });
+  }
+
   imageUrl(id: string): string {
     return `/api/hymn/${id}/image`;
+  }
+
+  mixUrl(id: string, v: VoiceVols, tempo?: number, timbre?: Timbre): string {
+    const p = new URLSearchParams();
+    p.set('soprano', '' + v.soprano);
+    p.set('alto', '' + v.alto);
+    p.set('tenor', '' + v.tenor);
+    p.set('bass', '' + v.bass);
+    if (tempo) p.set('tempo', '' + tempo);
+    if (timbre && timbre !== 'voz') p.set('timbre', timbre);
+    return `/api/hymn/${id}/mix?${p.toString()}`;
   }
 
   clearLibrary(): Observable<{ deleted: number }> {
