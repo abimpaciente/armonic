@@ -1,25 +1,18 @@
 {
   "name": "armonic (OMR + SATB voices)",
-  "image": "mcr.microsoft.com/devcontainers/java:21-gradle",
+  "image": "mcr.microsoft.com/devcontainers/java:21",
   "features": {
     "ghcr.io/devcontainers/features/node:20": {},
     "ghcr.io/devcontainers/features/python:1": { "version": "3.11" }
   },
   "customizations": {
     "vscode": {
-      "extensions": [
-        "ms-python.python",
-        "redhat.vscode-xml"
-      ]
+      "extensions": ["ms-python.python", "redhat.vscode-xml"]
     }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "remoteUser": "root",
   "forwardPorts": [8000],
   "portsAttributes": {
-    "8000": {
-      "label": "armonic (frontend + API)",
-      "onAutoForward": "openPreview"
-    }
+    "8000": { "label": "armonic (frontend + API)", "onAutoForward": "openPreview" }
   }
 }
