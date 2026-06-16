@@ -20,7 +20,7 @@ echo "🎼 Installing Audiveris OMR (package manager: $PM)…"
 if ! java -version 2>&1 | grep -q 'version "21'; then
     echo "☕ Java 21 not found; installing…"
     if [ "$PM" = "apt" ]; then
-        $SUDO apt-get update -qq
+        $SUDO apt-get update -qq || true
         $SUDO apt-get install -y -qq wget apt-transport-https gpg ca-certificates
         wget -qO- https://packages.adoptium.net/artifactory/api/gpg/key/public \
             | gpg --dearmor | $SUDO tee /etc/apt/trusted.gpg.d/adoptium.gpg >/dev/null
@@ -46,7 +46,9 @@ echo "☕ Using: $(java -version 2>&1 | head -1)"
 # 2. Tesseract runtime (libtesseract for Audiveris' OCR via JNI).
 echo "📦 Installing Tesseract…"
 if [ "$PM" = "apt" ]; then
-    $SUDO apt-get update -qq
+    # '|| true': a broken 3rd-party repo (e.g. yarn) must not abort us; the
+    # Ubuntu main repo still refreshes and provides tesseract/curl.
+    $SUDO apt-get update -qq || true
     $SUDO apt-get install -y --no-install-recommends tesseract-ocr curl ca-certificates
 else
     $SUDO apk add --no-cache tesseract-ocr curl >/dev/null || true
