@@ -42,8 +42,20 @@ $SUDO mkdir -p "$INSTALL_PREFIX"
 $SUDO tar -xf app/build/distributions/app-5.4.tar -C "$INSTALL_PREFIX" --strip-components=1
 $SUDO ln -sf "$INSTALL_PREFIX/bin/Audiveris" /usr/local/bin/audiveris
 
+# 5. OCR language data for the TITLE/lyrics. Audiveris uses Tesseract's *legacy*
+#    engine, which needs the full traineddata (eng ships with the repo; spa is
+#    fetched). Without this, Audiveris skips text and the hymn has no title.
+echo "🔤 Installing OCR language data (eng + spa)..."
+TESS_DIR="/opt/tessdata"
+$SUDO mkdir -p "$TESS_DIR"
+$SUDO cp "$BUILD_DIR/app/dev/tessdata/eng.traineddata" "$TESS_DIR/"
+$SUDO curl -sL -o "$TESS_DIR/spa.traineddata" \
+    https://github.com/tesseract-ocr/tessdata/raw/4.1.0/spa.traineddata
+
 echo ""
 echo "✅ Audiveris installed at $INSTALL_PREFIX/bin/Audiveris"
 echo ""
-echo "Now point the backend at it and restart:"
+echo "Now point the backend at it and restart (add to ~/.bashrc to persist):"
 echo "  export AUDIVERIS_BIN=\"$INSTALL_PREFIX/bin/Audiveris\""
+echo "  export TESSDATA_PREFIX=\"$TESS_DIR\""
+echo "  export OMR_LANG=\"spa+eng\""

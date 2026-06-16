@@ -19,6 +19,9 @@ class Settings:
         ).resolve()
         self.audiveris_bin = os.environ.get("AUDIVERIS_BIN", "")
         self.tessdata_prefix = os.environ.get("TESSDATA_PREFIX", "")
+        # Idiomas para el OCR de texto de Audiveris (título, letra). Español
+        # primero para los himnarios; inglés ayuda con subtítulos en inglés.
+        self.omr_lang = os.environ.get("OMR_LANG", "spa+eng")
         # Extensiones aceptadas
         self.image_exts = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"}
         self.score_exts = {".xml", ".musicxml", ".mxl", ".mid", ".midi"}

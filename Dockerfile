@@ -24,7 +24,7 @@ COPY --from=eclipse-temurin:21-jre /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="$JAVA_HOME/bin:$PATH"
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    tesseract-ocr \
+    tesseract-ocr curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy pre-built Audiveris
@@ -32,6 +32,15 @@ COPY --from=audiveris-builder /audiveris/app/build/distributions/app-5.4.tar /tm
 RUN mkdir -p /opt/audiveris && tar -xf /tmp/audiveris.tar -C /opt/audiveris --strip-components=1 && \
     rm /tmp/audiveris.tar && \
     ln -s /opt/audiveris/bin/Audiveris /usr/local/bin/audiveris
+
+# OCR language data for Audiveris (TITLE + lyrics). Audiveris uses Tesseract's
+# *legacy* engine, which needs the full traineddata (not Debian's LSTM-only).
+# eng (legacy) ships with the Audiveris repo; spa is fetched from tessdata 4.1.0.
+COPY --from=audiveris-builder /audiveris/app/dev/tessdata/eng.traineddata /opt/tessdata/eng.traineddata
+RUN curl -sL -o /opt/tessdata/spa.traineddata \
+    https://github.com/tesseract-ocr/tessdata/raw/4.1.0/spa.traineddata
+ENV TESSDATA_PREFIX=/opt/tessdata
+ENV OMR_LANG=spa+eng
 
 # Backend code + install
 COPY . .

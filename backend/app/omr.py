@@ -34,6 +34,15 @@ def run_audiveris(image_path: Path, out_dir: Path,
         settings.audiveris_bin,
         "-batch",
         "-export",
+    ]
+    # Idioma del OCR de texto (título/letra). Sin esto, Audiveris no reconoce
+    # el título y el himno queda "sin título".
+    if settings.omr_lang:
+        cmd += [
+            "-option",
+            f"org.audiveris.omr.text.Language.defaultSpecification={settings.omr_lang}",
+        ]
+    cmd += [
         "-output",
         str(out_dir),
         str(image_path),
