@@ -25,3 +25,6 @@ omr_*.mid
 *.png
 *.jpg
 *.jpeg
+
+# Frontend compilado (lo genera run-local.sh / Docker)
+backend/static/
