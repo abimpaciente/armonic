@@ -35,81 +35,6 @@ class HymnResult:
     duration_seconds: float
     midi_files: Dict[str, str] = field(default_factory=dict)  # nombre -> ruta
     source_ext: str = ""
-    lyrics: Optional[dict] = None  # {"verses": [...], "timeline": [{t, w}]}
-
-
-def _extract_lyrics(score: stream.Score) -> Optional[dict]:
-    """Extrae la letra reconocida por el OCR.
-
-    Devuelve ``{"verses": [str, ...], "karaoke": [palabra, ...]}`` donde cada
-    palabra de ``karaoke`` (estrofa 1) es ``{"syllables": [{"s": sílaba,
-    "t": offset_en_negras}, ...]}`` — útil para resaltar sílaba a sílaba
-    mientras suena. ``None`` si no hay letra.
-    """
-    from collections import defaultdict
-
-    # La parte con más sílabas suele ser la melodía (soprano).
-    best, best_count = None, 0
-    for part in score.parts:
-        count = sum(len(n.lyrics) for n in part.recurse().notes if n.lyrics)
-        if count > best_count:
-            best, best_count = part, count
-    if best is None or best_count == 0:
-        return None
-
-    notes = sorted((n for n in best.flatten().notes if n.lyrics),
-                   key=lambda n: n.offset)
-    verse_words: dict = defaultdict(list)
-    cur: dict = {}        # num -> palabra (texto) en construcción
-    cur_syl: dict = {}    # num -> lista de {s, t} de la palabra (solo estrofa 1)
-    karaoke: list = []
-
-    def close(num: int) -> None:
-        if cur.get(num):
-            verse_words[num].append(cur[num])
-            if num == 1:
-                karaoke.append({"syllables": cur_syl[num]})
-            cur[num] = None
-
-    for n in notes:
-        off = round(float(n.offset), 3)
-        for ly in n.lyrics:
-            num = ly.number or 1
-            text = (ly.text or "").strip()
-            if not text:
-                continue
-            syllabic = ly.syllabic
-            if syllabic in ("begin", "single") or not cur.get(num):
-                close(num)
-                cur[num] = text
-                cur_syl[num] = [{"s": text, "t": off}]
-            else:
-                cur[num] += text
-                cur_syl[num].append({"s": text, "t": off})
-            if syllabic in ("end", "single", None):
-                close(num)
-    for num in list(cur):
-        close(num)
-
-    verses = [" ".join(verse_words[k]) for k in sorted(verse_words) if verse_words[k]]
-    if not verses:
-        return None
-    return {"verses": verses, "karaoke": karaoke}
-
-
-def rebuild_karaoke(verses: list, old_karaoke: list) -> list:
-    """Reconstruye el karaoke (estrofa 1) tras editar la letra a mano.
-
-    No hay sílabas nuevas, así que cada palabra editada se trata como una
-    sílaba y se le asigna el tiempo de la palabra original en esa posición.
-    """
-    times = [w["syllables"][0]["t"] for w in old_karaoke if w.get("syllables")]
-    words = (verses[0].split() if verses else [])
-    out = []
-    for i, word in enumerate(words):
-        t = times[min(i, len(times) - 1)] if times else float(i)
-        out.append({"syllables": [{"s": word, "t": t}]})
-    return out
 
 
 def _estimate_seconds(score: stream.Score, bpm: float = 90.0) -> float:
@@ -278,5 +203,4 @@ def process(input_path: Path, hymn_id: str, work_dir: Path,
         duration_seconds=_estimate_seconds(satb),
         midi_files=midi_files,
         source_ext=ext,
-        lyrics=_extract_lyrics(score),
     )

@@ -2,9 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
-export interface Syllable { s: string; t: number; }
-export interface KaraokeWord { syllables: Syllable[]; }
-export interface Lyrics { verses: string[]; karaoke: KaraokeWord[]; }
 export interface VoiceVols { soprano: number; alto: number; tenor: number; bass: number; }
 
 export interface Hymn {
@@ -16,7 +13,6 @@ export interface Hymn {
   duration_seconds: number;
   tracks: string[];
   image_ext?: string | null;
-  lyrics?: Lyrics | null;
 }
 
 export type Timbre = 'voz' | 'piano';
@@ -58,10 +54,6 @@ export class ApiService {
 
   rename(id: string, title: string): Observable<{ hymn_id: string; title: string }> {
     return this.http.patch<{ hymn_id: string; title: string }>(`/api/hymn/${id}`, { title });
-  }
-
-  updateLyrics(id: string, verses: string[]): Observable<{ lyrics: Lyrics | null }> {
-    return this.http.patch<{ lyrics: Lyrics | null }>(`/api/hymn/${id}/lyrics`, { verses });
   }
 
   imageUrl(id: string): string {

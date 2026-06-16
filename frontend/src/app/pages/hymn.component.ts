@@ -9,8 +9,6 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService, Hymn, Timbre, VoiceVols } from '../api.service';
 import { Voice, VOICE_LABELS, VoiceService } from '../voice.service';
 
-interface KSyl { s: string; t: number; gi: number; }
-
 @Component({
   selector: 'app-hymn',
   standalone: true,
@@ -47,37 +45,6 @@ interface KSyl { s: string; t: number; gi: number; }
           </div>
         </div>
       </div>
-
-      @if (h.lyrics?.verses?.length) {
-        <div class="card lyrics">
-          <h3>Letra <span class="muted">· OCR</span>
-            @if (!editing()) {
-              <button class="icon" title="Editar letra" (click)="startEdit(h)">✎</button>
-            }
-          </h3>
-
-          @if (editing()) {
-            @for (v of editVerses; track $index) {
-              <textarea rows="2" [value]="v"
-                (input)="editVerses[$index] = $any($event.target).value"></textarea>
-            }
-            <div class="row">
-              <button (click)="saveEdit(h)">Guardar</button>
-              <button class="ghost" (click)="editing.set(false)">Cancelar</button>
-            </div>
-          } @else {
-            <midi-player
-              [attr.src]="api.midiUrl(h.hymn_id, 'satb_completo', tempo(), timbre())"
-              sound-font (start)="onSingStart($event)" (stop)="onSingStop()"></midi-player>
-            <p class="verse lead karaoke">
-              @for (word of kWords(); track $index) {<span class="kw">@for (syl of word; track syl.gi) {<span class="syl" [id]="'syl-' + syl.gi" [class.on]="syl.gi === activeSyl()">{{ syl.s }}</span>}</span> }
-            </p>
-            @for (v of otherVerses(h); track $index) {
-              <p class="verse muted">{{ v }}</p>
-            }
-          }
-        </div>
-      }
 
       <div class="voices">
         @for (v of orderedVoices(h); track v) {
@@ -125,23 +92,11 @@ interface KSyl { s: string; t: number; gi: number; }
     .head h1 { display: flex; align-items: center; gap: 8px; font-size: 26px; }
     .icon { background: none; box-shadow: none; color: var(--muted); font-size: 15px; padding: 2px 6px; }
     .icon:hover { color: var(--accent); }
-    .ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
 
     .controls { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 16px; }
     .control label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
     .control.grow { flex: 1; min-width: 200px; }
     .control input[type=range] { width: 100%; accent-color: var(--accent); }
-
-    .lyrics h3 { display: flex; align-items: center; gap: 6px; }
-    .lyrics textarea { width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 8px;
-      background: var(--bg2); color: var(--txt); border: 1px solid var(--line); resize: vertical;
-      font: inherit; }
-    .lyrics .verse { font-size: 17px; line-height: 2; margin: 6px 0; }
-    .lyrics .lead { color: var(--txt); font-weight: 500; }
-    .lyrics .kw { display: inline-block; }
-    .lyrics .syl { padding: 1px 1px; border-radius: 5px; transition: background 0.1s; }
-    .lyrics .syl.on { background: var(--accent); color: #042233; }
-    .lyrics midi-player { margin: 8px 0 14px; }
 
     .voices { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
     .voices .card { margin-bottom: 0; }
@@ -167,16 +122,9 @@ export class HymnComponent implements OnInit {
   tempoLabel = signal(84);
   timbre = signal<Timbre>((localStorage.getItem('armonic.timbre') as Timbre) || 'voz');
   vols = signal<VoiceVols>({ soprano: 90, alto: 90, tenor: 90, bass: 90 });
-  activeSyl = signal(-1);
-  kWords = signal<KSyl[][]>([]);
-  editing = signal(false);
-  editVerses: string[] = [];
   myVoice: Voice | null;
   labels = VOICE_LABELS;
   order: Voice[] = ['soprano', 'alto', 'tenor', 'bass'];
-  private flat: KSyl[] = [];
-  private singing = false;
-  private lastSyl = -1;
 
   constructor(
     public api: ApiService,
@@ -188,23 +136,7 @@ export class HymnComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.api.hymn(id).subscribe((h) => { this.hymn.set(h); this.buildKaraoke(h); });
-  }
-
-  private buildKaraoke(h: Hymn): void {
-    const words: KSyl[][] = [];
-    const flat: KSyl[] = [];
-    let gi = 0;
-    for (const word of h.lyrics?.karaoke ?? []) {
-      const syls = word.syllables.map((s) => {
-        const k: KSyl = { s: s.s, t: s.t, gi: gi++ };
-        flat.push(k);
-        return k;
-      });
-      words.push(syls);
-    }
-    this.kWords.set(words);
-    this.flat = flat;
+    this.api.hymn(id).subscribe((h) => this.hymn.set(h));
   }
 
   onTempo(e: Event): void {
@@ -227,54 +159,6 @@ export class HymnComponent implements OnInit {
     const title = value?.trim();
     if (!title || title === h.title) return;
     this.api.rename(h.hymn_id, title).subscribe({ next: () => this.hymn.set({ ...h, title }) });
-  }
-
-  startEdit(h: Hymn): void {
-    this.editVerses = [...(h.lyrics?.verses ?? [])];
-    this.editing.set(true);
-  }
-
-  saveEdit(h: Hymn): void {
-    this.api.updateLyrics(h.hymn_id, this.editVerses).subscribe({
-      next: (r) => {
-        const updated = { ...h, lyrics: r.lyrics };
-        this.hymn.set(updated);
-        this.buildKaraoke(updated);
-        this.editing.set(false);
-      },
-    });
-  }
-
-  /** Resalta la sílaba de la estrofa 1 según el tiempo del reproductor. */
-  onSingStart(ev: Event): void {
-    const player = ev.target as unknown as { currentTime: number };
-    this.singing = true;
-    const tick = () => {
-      if (!this.singing) return;
-      const ql = (player.currentTime || 0) * this.tempo() / 60;
-      let idx = -1;
-      for (let i = 0; i < this.flat.length; i++) {
-        if (this.flat[i].t <= ql + 0.05) idx = this.flat[i].gi; else break;
-      }
-      if (idx !== this.lastSyl) {
-        this.lastSyl = idx;
-        this.activeSyl.set(idx);
-        const el = idx >= 0 ? document.getElementById('syl-' + idx) : null;
-        el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }
-
-  onSingStop(): void {
-    this.singing = false;
-    this.lastSyl = -1;
-    this.activeSyl.set(-1);
-  }
-
-  otherVerses(h: Hymn): string[] {
-    return (h.lyrics?.verses ?? []).slice(1);
   }
 
   orderedVoices(h: Hymn): Voice[] {

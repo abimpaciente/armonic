@@ -26,7 +26,7 @@ from armonic.voices import (
     restyle_midi,
 )
 from .config import settings
-from .pipeline import process, rebuild_karaoke
+from .pipeline import process
 from .store import store
 
 app = FastAPI(title="armonic API", version="0.1.0")
@@ -48,7 +48,6 @@ def _persist_result(result, work_dir: Path) -> None:
         "duration_seconds": result.duration_seconds,
         "tracks": sorted(result.midi_files.keys()),
         "image_ext": image_ext,
-        "lyrics": result.lyrics,
     }
     midi_dir = work_dir / "midi"
     midi_dir.mkdir(parents=True, exist_ok=True)
@@ -191,25 +190,6 @@ def rename_hymn(hymn_id: str, body: RenameBody) -> dict:
     if not store.rename_hymn(hymn_id, title):
         raise HTTPException(404, "Himno no encontrado")
     return {"hymn_id": hymn_id, "title": title}
-
-
-class LyricsBody(BaseModel):
-    verses: list[str]
-
-
-@app.patch("/api/hymn/{hymn_id}/lyrics")
-def update_lyrics(hymn_id: str, body: LyricsBody) -> dict:
-    hymn = store.get_hymn(hymn_id)
-    if hymn is None:
-        raise HTTPException(404, "Himno no encontrado")
-    verses = [v.strip() for v in body.verses if v.strip()]
-    old_karaoke = (hymn.get("lyrics") or {}).get("karaoke", [])
-    lyrics = (
-        {"verses": verses, "karaoke": rebuild_karaoke(verses, old_karaoke)}
-        if verses else None
-    )
-    store.set_lyrics(hymn_id, lyrics)
-    return {"lyrics": lyrics}
 
 
 @app.get("/api/hymn/{hymn_id}/mix")
