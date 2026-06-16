@@ -9,9 +9,48 @@ from typing import Optional
 
 from .config import settings
 
+try:  # Pillow es opcional; sin él, no se reescala (puede fallar el OMR de fotos chicas)
+    from PIL import Image
+except ImportError:  # pragma: no cover
+    Image = None
+
 
 class OMRError(RuntimeError):
     """El reconocimiento de la partitura falló."""
+
+
+# Audiveris necesita ~16-20 px de "interline" (espacio entre líneas del
+# pentagrama). Una foto de himno bien escaneada ronda los 2200+ px de lado
+# largo; por debajo de esto, el OMR aborta ("interline too low").
+_TARGET_LONG_SIDE = 2400
+_MAX_SCALE = 4.0
+
+
+def _prepare_image(image_path: Path, out_dir: Path) -> Path:
+    """Agranda la imagen si es de baja resolución, para que Audiveris la lea.
+
+    Devuelve la ruta a usar (la original si ya es suficientemente grande, o
+    una copia reescalada). Si Pillow no está, devuelve la original.
+    """
+    if Image is None:
+        return image_path
+    try:
+        img = Image.open(image_path)
+        long_side = max(img.size)
+    except Exception:  # noqa: BLE001 - si no se puede abrir, que lo intente Audiveris
+        return image_path
+    if long_side >= _TARGET_LONG_SIDE:
+        return image_path
+    scale = min(_MAX_SCALE, _TARGET_LONG_SIDE / long_side)
+    if scale <= 1.05:
+        return image_path
+    w, h = img.size
+    big = img.convert("RGB").resize((round(w * scale), round(h * scale)),
+                                    Image.LANCZOS)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    prepared = out_dir / "omr_input.png"
+    big.save(prepared)
+    return prepared
 
 
 def run_audiveris(image_path: Path, out_dir: Path,
@@ -29,6 +68,9 @@ def run_audiveris(image_path: Path, out_dir: Path,
     env = dict(os.environ)
     if settings.tessdata_prefix:
         env["TESSDATA_PREFIX"] = settings.tessdata_prefix
+
+    # Reescala fotos de baja resolución para que Audiveris pueda transcribir.
+    image_path = _prepare_image(image_path, out_dir)
 
     cmd = [
         settings.audiveris_bin,
