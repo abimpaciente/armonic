@@ -1,50 +1,82 @@
 :root {
-  --bg: #0f172a;
-  --card: #1e293b;
+  --bg: #0b1220;
+  --bg2: #0f172a;
+  --card: #18233a;
+  --card2: #1e2b47;
   --accent: #38bdf8;
-  --txt: #e2e8f0;
+  --accent2: #818cf8;
+  --txt: #e8eef7;
   --muted: #94a3b8;
+  --line: #2a3a57;
+  --radius: 14px;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  background: var(--bg);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: radial-gradient(1200px 600px at 50% -10%, #14213d 0%, var(--bg) 55%) fixed;
   color: var(--txt);
+  -webkit-font-smoothing: antialiased;
 }
 
 .card {
-  background: var(--card);
-  border-radius: 12px;
+  background: linear-gradient(180deg, var(--card) 0%, var(--bg2) 130%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   padding: 18px;
   margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
-h1, h2, h3 { margin-top: 0; }
+h1, h2, h3 { margin-top: 0; letter-spacing: -0.01em; }
 
 .muted { color: var(--muted); font-size: 14px; }
 .status { color: var(--muted); font-size: 14px; }
 
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
+/* Chips para metadatos (tono, modo, etc.) */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.chip {
+  font-size: 12px; color: var(--muted);
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid var(--line);
+  padding: 3px 10px; border-radius: 999px;
+}
+
 button {
-  background: var(--accent);
-  color: #06283d;
+  background: linear-gradient(180deg, var(--accent) 0%, #1ea7e6 100%);
+  color: #042233;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px 16px;
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
+  transition: transform 0.06s ease, filter 0.15s ease;
 }
-button:disabled { opacity: 0.5; cursor: default; }
+button:hover:not(:disabled) { filter: brightness(1.06); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: 0.45; cursor: default; }
 
 input[type='text'], input[type='file'], .search {
-  padding: 9px;
-  border-radius: 8px;
-  background: #0f172a;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--bg2);
   color: var(--txt);
-  border: 1px solid #334155;
+  border: 1px solid var(--line);
 }
+input:focus, .search:focus { outline: 2px solid rgba(56, 189, 248, 0.4); outline-offset: 0; }
+
+/* Control segmentado reutilizable (p. ej. Voz / Piano) */
+.seg { display: inline-flex; background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 3px; gap: 3px; }
+.seg button { background: transparent; color: var(--muted); padding: 7px 14px;
+  border-radius: 7px; box-shadow: none; }
+.seg button.active { background: linear-gradient(180deg, var(--accent) 0%, #1ea7e6 100%);
+  color: #042233; }
+
+/* Reproductor MIDI ocupa el ancho de la tarjeta */
+midi-player { width: 100%; }

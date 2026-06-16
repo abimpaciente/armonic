@@ -2,6 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
+export interface LyricWord { t: number; w: string; }
+export interface Lyrics { verses: string[]; timeline: LyricWord[]; }
+
 export interface Hymn {
   hymn_id: string;
   title: string;
@@ -11,6 +14,7 @@ export interface Hymn {
   duration_seconds: number;
   tracks: string[];
   image_ext?: string | null;
+  lyrics?: Lyrics | null;
 }
 
 export type Timbre = 'voz' | 'piano';

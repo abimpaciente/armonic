@@ -35,6 +35,65 @@ class HymnResult:
     duration_seconds: float
     midi_files: Dict[str, str] = field(default_factory=dict)  # nombre -> ruta
     source_ext: str = ""
+    lyrics: Optional[dict] = None  # {"verses": [...], "timeline": [{t, w}]}
+
+
+def _extract_lyrics(score: stream.Score) -> Optional[dict]:
+    """Extrae la letra reconocida por el OCR.
+
+    Devuelve ``{"verses": [str, ...], "timeline": [{"t": ql, "w": palabra}]}``
+    donde ``verses`` son las estrofas y ``timeline`` marca, para la estrofa 1,
+    el offset (en negras) donde empieza cada palabra — útil para resaltar la
+    letra mientras suena. ``None`` si no hay letra.
+    """
+    from collections import defaultdict
+
+    # La parte con más sílabas suele ser la melodía (soprano).
+    best, best_count = None, 0
+    for part in score.parts:
+        count = sum(len(n.lyrics) for n in part.recurse().notes if n.lyrics)
+        if count > best_count:
+            best, best_count = part, count
+    if best is None or best_count == 0:
+        return None
+
+    notes = sorted((n for n in best.flatten().notes if n.lyrics),
+                   key=lambda n: n.offset)
+    verse_words: dict = defaultdict(list)
+    cur: dict = {}
+    cur_start: dict = {}
+    timeline: list = []
+
+    def close(num: int) -> None:
+        if cur.get(num):
+            verse_words[num].append(cur[num])
+            if num == 1:
+                timeline.append({"t": round(cur_start[num], 3), "w": cur[num]})
+            cur[num] = None
+
+    for n in notes:
+        off = float(n.offset)
+        for ly in n.lyrics:
+            num = ly.number or 1
+            text = (ly.text or "").strip()
+            if not text:
+                continue
+            syllabic = ly.syllabic
+            if syllabic in ("begin", "single") or not cur.get(num):
+                close(num)
+                cur[num] = text
+                cur_start[num] = off
+            else:
+                cur[num] += text
+            if syllabic in ("end", "single", None):
+                close(num)
+    for num in list(cur):
+        close(num)
+
+    verses = [" ".join(verse_words[k]) for k in sorted(verse_words) if verse_words[k]]
+    if not verses:
+        return None
+    return {"verses": verses, "timeline": timeline}
 
 
 def _estimate_seconds(score: stream.Score, bpm: float = 90.0) -> float:
@@ -203,4 +262,5 @@ def process(input_path: Path, hymn_id: str, work_dir: Path,
         duration_seconds=_estimate_seconds(satb),
         midi_files=midi_files,
         source_ext=ext,
+        lyrics=_extract_lyrics(score),
     )

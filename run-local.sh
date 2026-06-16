@@ -38,14 +38,14 @@ fi
 echo "🐍 Instalando dependencias del backend…"
 $SUDO python3 -m pip install $PIP_FLAGS -q -e ".[backend]"
 
-# 4. Compila el frontend dentro de backend/static (1ª vez o con --rebuild).
-if [ "$1" = "--rebuild" ] || [ ! -f backend/static/index.html ]; then
-    echo "📱 Compilando el frontend…"
-    (cd frontend && npm ci && npm run build)
-    mkdir -p backend/static
-    rm -rf backend/static/*
-    cp -r frontend/dist/frontend/browser/* backend/static/
-fi
+# 4. Compila el frontend dentro de backend/static (siempre, para no servir un
+#    build viejo tras un git pull). npm ci solo si faltan dependencias.
+echo "📱 Compilando el frontend…"
+[ -d frontend/node_modules ] || (cd frontend && npm ci)
+(cd frontend && npm run build)
+mkdir -p backend/static
+rm -rf backend/static/*
+cp -r frontend/dist/frontend/browser/* backend/static/
 
 # 5. Arranca el servidor (frontend + API en el mismo puerto).
 echo ""

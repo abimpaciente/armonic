@@ -47,6 +47,7 @@ def _persist_result(result, work_dir: Path) -> None:
         "duration_seconds": result.duration_seconds,
         "tracks": sorted(result.midi_files.keys()),
         "image_ext": image_ext,
+        "lyrics": result.lyrics,
     }
     midi_dir = work_dir / "midi"
     midi_dir.mkdir(parents=True, exist_ok=True)
