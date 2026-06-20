@@ -19,7 +19,12 @@ from typing import Dict, List, Optional
 from music21 import converter, stream
 
 from armonic.harmony import harmonize
-from armonic.voices import VOICE_ORDER, split_satb, write_practice_tracks
+from armonic.voices import (
+    VOICE_ORDER,
+    parts_to_satb,
+    split_satb,
+    write_practice_tracks,
+)
 
 from .config import settings
 from .omr import run_audiveris
@@ -167,9 +172,14 @@ def process(input_path: Path, hymn_id: str, work_dir: Path,
 
     score = converter.parse(str(score_path))
 
-    # 2. Separar o armonizar según el número de pentagramas
+    # 2. Separar o armonizar según el número de partes:
+    #    >=4 voces ya separadas (p. ej. MIDI SATB) -> mapear directo;
+    #    2-3 pentagramas (partitura cerrada) -> separar; 1 melodía -> armonizar.
     n_parts = len(score.parts)
-    if n_parts >= 2:
+    if n_parts >= 4:
+        satb = parts_to_satb(score)
+        mode = "separado"
+    elif n_parts >= 2:
         satb = split_satb(score)
         mode = "separado"
     else:

@@ -92,3 +92,24 @@ def test_restyle_to_piano_replaces_timbre_cleanly():
     programs, tempos = _programs_tempos(piano60)
     assert programs == {PIANO_PROGRAM}
     assert tempos == {60}
+
+
+def test_parts_to_satb_maps_four_voices_by_pitch():
+    from music21 import chord, note, stream
+    from armonic.voices import VOICE_ORDER, parts_to_satb
+
+    # 4 partes con alturas descendentes; la voz aguda trae un acorde (divisi).
+    s = stream.Score()
+    p0 = stream.Part(); p0.append(chord.Chord(["C5", "E5"], quarterLength=1))
+    p1 = stream.Part(); p1.append(note.Note("G4", quarterLength=1))
+    p2 = stream.Part(); p2.append(note.Note("C4", quarterLength=1))
+    p3 = stream.Part(); p3.append(note.Note("C3", quarterLength=1))
+    for p in (p2, p0, p3, p1):  # orden desordenado a propósito
+        s.insert(0, p)
+
+    satb = parts_to_satb(s)
+    assert [p.id for p in satb.parts] == VOICE_ORDER
+    by_id = {p.id: p for p in satb.parts}
+    # soprano (top) toma la nota más aguda del acorde; ninguna parte es acorde
+    assert by_id["soprano"].flatten().notes[0].pitch.nameWithOctave == "E5"
+    assert all(not n.isChord for p in satb.parts for n in p.flatten().notes)

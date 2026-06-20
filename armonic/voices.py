@@ -64,6 +64,52 @@ def _split_staff(part: stream.Part, top_name: str, bottom_name: str
     return {top_name: top, bottom_name: bottom}
 
 
+def _to_monophonic(part: stream.Part, prefer: str) -> stream.Part:
+    """Reduce una parte a una sola línea (de los acordes/divisi toma la nota
+    más aguda si ``prefer='top'`` o la más grave si ``'bottom'``)."""
+    out = stream.Part()
+    for el in part.flatten().notesAndRests:
+        off = float(el.offset)
+        ql = float(el.quarterLength)
+        if el.isRest:
+            out.insert(off, note.Rest(quarterLength=ql))
+        elif el.isChord:
+            pitches = sorted(el.pitches, key=lambda p: p.midi)
+            chosen = pitches[-1] if prefer == "top" else pitches[0]
+            out.insert(off, note.Note(chosen, quarterLength=ql))
+        else:
+            out.insert(off, note.Note(el.pitch, quarterLength=ql))
+    return out
+
+
+def _avg_pitch(part: stream.Part) -> float:
+    midis: List[int] = []
+    for n in part.flatten().notes:
+        midis.extend(p.midi for p in n.pitches)
+    return sum(midis) / len(midis) if midis else 0.0
+
+
+def parts_to_satb(score: stream.Score) -> stream.Score:
+    """Mapea una partitura que ya trae las voces separadas (>=4 partes) a SATB.
+
+    Ordena las partes por altura media (aguda->grave) y toma las cuatro como
+    soprano, alto, tenor y bajo, reduciendo acordes/divisi a una sola línea.
+    """
+    parts = sorted(score.parts, key=_avg_pitch, reverse=True)[:4]
+    if len(parts) < 4:
+        raise ValueError(f"Se esperaban >=4 voces; hay {len(parts)}.")
+    prefer = {"soprano": "top", "alto": "top", "tenor": "bottom", "bass": "bottom"}
+    clefs = {"soprano": clef.TrebleClef(), "alto": clef.TrebleClef(),
+             "tenor": clef.BassClef(), "bass": clef.BassClef()}
+    out = stream.Score()
+    for name, part in zip(VOICE_ORDER, parts):
+        line = _to_monophonic(part, prefer[name])
+        line.id = name
+        line.insert(0, clefs[name])
+        out.insert(0, line)
+    return out
+
+
 def split_satb(score: stream.Score) -> stream.Score:
     """Convierte una partitura cerrada de 2 pentagramas en 4 voces SATB.
 
